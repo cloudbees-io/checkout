@@ -4,11 +4,11 @@ name: 'Checkout'
 description: 'Checkout a Git repository at a particular version'
 inputs:
   provider:
-    description: 'SCM provider that is hosting the repository. For example github, bitbucket, gitlab'
-    default: ${{ cloudbees.scm.provider }}
+    description: 'SCM provider that is hosting the repository. For example github, bitbucket, gitlab or custom'
+    default: "${{ cloudbees.scm.provider }}"
   repository:
-    description: 'Repository name with owner. For example, actions/checkout'
-    default: ${{ cloudbees.repository }}
+    description: 'Repository name with owner. For example, actions/checkout. Alternatively if provider is custom then this is the clone URL of the repository'
+    default: "${{ cloudbees.repository }}"
   ref:
     description: >
       The branch, tag or SHA to checkout. When checking out the repository that
@@ -23,7 +23,7 @@ inputs:
 
       We recommend using a service account with the least permissions necessary.
       Also when generating a new PAT, select the least scopes necessary.
-    default: ${{ cloudbees.scm.token }}
+    default: "${{ cloudbees.scm.token }}"
   ssh-key:
     description: >
       SSH key used to fetch the repository. The SSH key is configured with the local
@@ -42,21 +42,21 @@ inputs:
       Whether to perform strict host key checking. When true, adds the options `StrictHostKeyChecking=yes`
       and `CheckHostIP=no` to the SSH command line. Use the input `ssh-known-hosts` to
       configure additional hosts.
-    default: true
+    default: "true"
   persist-credentials:
     description: 'Whether to configure the token or SSH key with the local git config'
-    default: true
+    default: "true"
   path:
     description: 'Relative path under $CLOUDBEES_WORKSPACE to place the repository'
   clean:
     description: 'Whether to execute `git clean -ffdx && git reset --hard HEAD` before fetching'
-    default: true
+    default: "true"
   fetch-depth:
     description: 'Number of commits to fetch. 0 indicates all history for all branches and tags.'
-    default: 1
+    default: "1"
   lfs:
     description: 'Whether to download Git-LFS files'
-    default: false
+    default: "false"
   submodules:
     description: >
       Whether to checkout submodules: `true` to checkout submodules or `recursive` to
@@ -65,16 +65,41 @@ inputs:
 
       When the `ssh-key` input is not provided, SSH URLs beginning with `git@github.com:` are
       converted to HTTPS.
-    default: false
+    default: "false"
   set-safe-directory:
     description: Add repository path as safe.directory for Git global config by running `git config --global --add safe.directory <path>`
-    default: true
+    default: "true"
   github-server-url:
-    description: The base URL for the GitHub instance that you are trying to clone from, will use environment defaults to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://github.com or https://my-ghes-server.example.com
+    description: The base URL for the GitHub instance that you are trying to clone from, will use environment defaults (i.e. the GITHUB_SERVER_URL environment variable) to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://github.com or https://my-ghes-server.example.com
     required: false
   bitbucket-server-url:
-    description: The base URL for the Bitbucket instance that you are trying to clone from, will use environment defaults to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://bitbucket.org or https://my-bbdc-server.example.com
+    description: The base URL for the Bitbucket instance that you are trying to clone from, will use environment defaults (i.e. the BITBUCKET_SERVER_URL environment variable) to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://bitbucket.org or https://my-bbdc-server.example.com
     required: false
   gitlab-server-url:
-    description: The base URL for the GitLab instance that you are trying to clone from, will use environment defaults to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://gitlab.com or https://my-gl-server.example.com
+    description: The base URL for the GitLab instance that you are trying to clone from, will use environment defaults (i.e. the GITLAB_SERVER_URL environment variable) to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://gitlab.com or https://my-gl-server.example.com
     required: false
+runs:
+  using: composite
+  steps:
+    - name: Checkout
+      uses: docker://registry.saas-dev.beescloud.com/staging/cloudbees-io-checkout:v1
+      shell: sh
+      run: |
+        actions-checkout \
+          "--provider=${{ inputs.provider }}" \
+          "--repository=${{ inputs.repository }}" \
+          "--ref=${{ inputs.ref }}" \
+          "--token=${{ inputs.token }}" \
+          "--ssh-key=${{ inputs.ssh-key }}" \
+          "--ssh-known-hosts=${{ inputs.ssh-known-hosts }}" \
+          "--ssh-strict=${{ inputs.ssh-strict }}" \
+          "--persist-credentials=${{ inputs.persist-credentials }}" \
+          "--path=${{ inputs.path }}" \
+          "--clean=${{ inputs.clean }}" \
+          "--fetch-depth=${{ inputs.fetch-depth }}" \
+          "--lfs=${{ inputs.lfs }}" \
+          "--submodules=${{ inputs.submodules }}" \
+          "--set-safe-directory=${{ inputs.set-safe-directory }}" \
+          "--github-server-url=${{ inputs.github-server-url }}" \
+          "--bitbucket-server-url=${{ inputs.bitbucket-server-url }}" \
+          "--gitlab-server-url=${{ inputs.gitlab-server-url }}" \

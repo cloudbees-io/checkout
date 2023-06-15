@@ -1,0 +1,31 @@
+name: Test on GHA
+
+on: [ push ]
+
+jobs:
+  compat-check:
+    runs-on: ubuntu-latest
+    name: Check the action running on GHA
+    steps:
+      # To use this repository's private action,
+      # you must check out the repository
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          path: source
+      - name: Fake event
+        run: |
+          # the directory ${RUNNER_TEMP}/_github_home is always mounted in container as /github/home 
+          mkdir -p "${RUNNER_TEMP}/_github_home"
+          echo '{"sha":"${{github.sha}}","provider":"github","repository":"${{github.repository}}","ref":"${{github.ref}}"}' > "${RUNNER_TEMP}/_github_home/event.json"
+          cat "${RUNNER_TEMP}/_github_home/event.json"
+      - name: Compat checkout
+        uses: ./source/.github/actions/compat
+        with:
+          path: target
+        env:
+          CLOUDBEES_WORKSPACE: /github/workspace
+          CLOUDBEES_EVENT_PATH: /github/home/event.json
+      - name: Debug
+        run: |
+          find .
