@@ -1,0 +1,27 @@
+= CloudBees action: Check out a Git repository
+
+== Overview 
+Use this action to check out a Git repository for use in CloudBees workflows.
+
+Use this action to check out a Git repository under `+$CLOUDBEES_WORKSPACE+`, 
+to allow your workflow to access the repository. Provide a repository name, 
+a branch, tag, or SHA, a personal access token (PAT), and an SSH key, in order 
+to check out a repo.
+
+== Disclaimer
+This repository is provided "as-is", and serves as a reference only. 
+Treat this action as an example only, and test before deploying to production.
+CloudBees does not warrant that any contents of this repository are free from 
+defects or designed to meet any user's business requirements. 
+CloudBees does not make any other warranties, express or implied, statutory or 
+otherwise, including but not limited to implied warranties of merchantability, 
+title, fitness for a particular purpose, or noninfringement. 
+
+== License
+This code is made available under the 
+link:https://opensource.org/license/mit/[MIT license].
+
+== Reference
+For more information on using actions in developing CloudBees workflows, 
+refer to the link:https://docs.cloudbees.com/docs/cloudbees-saas-platform/latest/[CloudBees platform documentation].
+
