@@ -1,16 +1,8 @@
-include::ROOT:partial$abbr.adoc[]
 = CloudBees action: Check out a Git repository
 
-Use this action to check out a Git repository under `+$CLOUDBEES_WORKSPACE+`, to allow your workflow to access the repository. To check out a repository, you must provide:
-
-* A repository name
-* A branch, tag, or SHA
-* A personal access token (PAT)
-* An SSH key
+Use this action to check out a Git repository under `+$CLOUDBEES_WORKSPACE+`, to allow your workflow to access the repository. 
 
 Your authentication for the checked-out repository is persisted in the local Git config file by default, so your scripts can run authenticated Git commands in any container image that has Git executables.
-
-include::ROOT:partial$github-link.adoc[]
 
 == Inputs
 
@@ -129,7 +121,6 @@ Unless specified, the base URL uses environment defaults to fetch from the same 
 Example URLs are `\https://gitlab.com` or `\https://my-gl-server.example.com`.
 |===
 
-
 == Usage example
 
 In the YAML file, all values are required, unless otherwise noted. Default values are included in the example YAML file below. Refer to the notes for options and details.
@@ -168,7 +159,15 @@ In your YAML file, add:
           gitlab-server-url: ''
 ----
 
+== License
 
+This code is made available under the 
+link:https://opensource.org/license/mit/[MIT license].
+
+== References
+
+* Learn more about link:https://docs.cloudbees.com/docs/cloudbees-saas-platform-actions/latest/[using actions in CloudBees workflows].
+* Learn about link:https://docs.cloudbees.com/docs/cloudbees-saas-platform/latest/[the CloudBees platform].
 
 
 
