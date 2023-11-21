@@ -138,7 +138,7 @@ In your YAML file, add:
 [source,yaml]
 ----
       - name: Check out repo
-        uses: cloudbees-io/checkout@v3
+        uses: cloudbees-io/checkout@v1
         with:
           provider: ${{ cloudbees.scm.provider }}
           repository: ${{ cloudbees.repository }}
