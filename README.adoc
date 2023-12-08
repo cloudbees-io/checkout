@@ -44,8 +44,6 @@ The PAT is configured with the local Git config, which enables your scripts to r
 | No
 | SSH key used to fetch the repository.
 The SSH key is configured with the local Git config, which enables your scripts to run authenticated Git commands.
-The post-job step removes the SSH key.
-
 
 | `ssh-known-hosts`
 | String
