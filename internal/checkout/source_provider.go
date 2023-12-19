@@ -428,13 +428,13 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		if refPresent, err := testRef(cli, cfg.Ref, cfg.Commit); err != nil {
 			return err
 		} else if !refPresent {
-			if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit), fetchOptions); err != nil {
+			if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit, cfg.Provider), fetchOptions); err != nil {
 				return err
 			}
 		}
 	} else {
 		fetchOptions.FetchDepth = cfg.FetchDepth
-		if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit), fetchOptions); err != nil {
+		if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit, cfg.Provider), fetchOptions); err != nil {
 			return err
 		}
 	}
@@ -915,7 +915,7 @@ func getRefSpecForAllHistory(ref string, commit string) []string {
 	return r
 }
 
-func getRefSpec(ref string, commit string) []string {
+func getRefSpec(ref string, commit string, provider string) []string {
 	lowerRef := strings.ToLower(ref)
 
 	if commit != "" {
@@ -933,6 +933,9 @@ func getRefSpec(ref string, commit string) []string {
 			return []string{fmt.Sprintf("+%s:%s", commit, ref)}
 		}
 
+		if provider == BitbucketProvider {
+			return []string{commit, ref}
+		}
 		return []string{commit}
 	}
 
