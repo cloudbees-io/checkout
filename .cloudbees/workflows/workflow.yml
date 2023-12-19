@@ -12,3 +12,21 @@ jobs:
   build:
     steps:
       - uses: .
+      - id: test
+        name: Build and test tekton-pipeline-controller
+        uses: docker://golang:1.21
+        run: |
+          go test ./...
+      - id: dockerconfig
+        name: Configure container registry credentials
+        uses: cloudbees-io/configure-oci-credentials@v0
+        with:
+          registry: ${{ vars.STAGING_DOCKER_REGISTRY }}
+          username: ${{ secrets.STAGING_DOCKER_USERNAME }}
+          password: ${{ secrets.STAGING_DOCKER_PASSWORD }}
+      - id: build-image
+        name: Build tekton-pipeline-controller image
+        uses: cloudbees-io/kaniko@v1
+        with:
+          dockerfile: Dockerfile
+          destination: ${{ cloudbees.scm.branch == 'main' && format('{0}/staging/cloudbees-io-checkout:v1.0.8', vars.STAGING_DOCKER_REGISTRY) || format('{0}/staging/cloudbees-io-checkout:{1}', vars.STAGING_DOCKER_REGISTRY, cloudbees.version) }}

@@ -200,10 +200,10 @@ func GenerateSSHKey(ctx context.Context, tempDir string, prefix string, inputKey
 		// remove inherited permissions on windows
 		icacls, err := exec.LookPath("icacls.exe")
 		if err != nil && !errors.Is(err, exec.ErrDot) {
-			return "", fmt.Errorf("cannot find icacls.exe", err)
+			return "", fmt.Errorf("cannot find icacls.exe: %v", err)
 		} else if errors.Is(err, exec.ErrDot) {
 			if icacls, err = filepath.Abs(icacls); err != nil {
-				return "", fmt.Errorf("cannot find icacls.exe", err)
+				return "", fmt.Errorf("cannot find icacls.exe: %v", err)
 			}
 		}
 
@@ -236,10 +236,10 @@ func GenerateSSHKey(ctx context.Context, tempDir string, prefix string, inputKey
 func GenerateSSHCommand(sshKeyPath string, sshStrict bool, sshKnownHostsPath string) (string, error) {
 	ssh, err := exec.LookPath("ssh")
 	if err != nil && !errors.Is(err, exec.ErrDot) {
-		return "", fmt.Errorf("cannot find ssh", err)
+		return "", fmt.Errorf("cannot find ssh: %v", err)
 	} else if errors.Is(err, exec.ErrDot) {
 		if ssh, err = filepath.Abs(ssh); err != nil {
-			return "", fmt.Errorf("cannot find ssh", err)
+			return "", fmt.Errorf("cannot find ssh: %v", err)
 		}
 	}
 	cmd := fmt.Sprintf("%s -i %s", shellescape.Quote(ssh), shellescape.Quote(sshKeyPath))
