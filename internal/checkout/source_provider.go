@@ -145,14 +145,14 @@ func (cfg *Config) validate() error {
 	// Submodules
 	switch cfg.Submodules {
 	case "true":
-		core.Debug("submodules = true", []any{}...)
-		core.Debug("recursive submodules = false", []any{}...)
+		core.Debug("submodules = true")
+		core.Debug("recursive submodules = false")
 	case "false":
-		core.Debug("submodules = false", []any{}...)
-		core.Debug("recursive submodules = false", []any{}...)
+		core.Debug("submodules = false")
+		core.Debug("recursive submodules = false")
 	case "recursive":
-		core.Debug("submodules = true", []any{}...)
-		core.Debug("recursive submodules = true", []any{}...)
+		core.Debug("submodules = true")
+		core.Debug("recursive submodules = true")
 	default:
 		return fmt.Errorf("unsupported submodules: '%s', expected true/false/recursive", cfg.Submodules)
 	}
@@ -1063,7 +1063,7 @@ func prepareExistingDirectory(cli *git.GitCLI, repositoryPath string, repository
 		// Clean
 		if clean {
 			if err := cli.Clean(); err != nil {
-				fmt.Println("The Clean command failed. This might be caused by: 1) Path too long, 2) permission issue, or 3) file in use. For further investigation, manually run 'git Clean -ffdx' on the directory '%s'.", repositoryPath)
+				fmt.Printf("The Clean command failed. This might be caused by: 1) Path too long, 2) permission issue, or 3) file in use. For further investigation, manually run 'git Clean -ffdx' on the directory '%s'.\n", repositoryPath)
 				fmt.Println("Unable to prepare the existing Repository. The Repository will be recreated instead.")
 				remove = true
 			} else if err := cli.Reset(); err != nil {
