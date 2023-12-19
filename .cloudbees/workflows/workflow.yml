@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: .
       - id: test
-        name: Build and test tekton-pipeline-controller
+        name: Build and test
         uses: docker://golang:1.21
         run: |
           go test ./...
@@ -25,7 +25,7 @@ jobs:
           username: ${{ secrets.STAGING_DOCKER_USERNAME }}
           password: ${{ secrets.STAGING_DOCKER_PASSWORD }}
       - id: build-image
-        name: Build tekton-pipeline-controller image
+        name: Build image
         uses: cloudbees-io/kaniko@v1
         with:
           dockerfile: Dockerfile
