@@ -1,6 +1,6 @@
 module github.com/cloudbees-io/checkout
 
-go 1.20
+go 1.21
 
 require (
 	github.com/go-git/go-git/v5 v5.9.0
