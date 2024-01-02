@@ -88,7 +88,7 @@ runs:
   using: composite
   steps:
     - name: Checkout
-      uses: docker://registry.saas-dev.beescloud.com/staging/cloudbees-io-checkout:v1.0.8
+      uses: docker://public.ecr.aws/l7o7z1g8/actions/cloudbees-io-checkout:v1.0.8
       env:
         CLOUDBEES_EVENT_PATH: /cloudbees/event.json
       shell: sh
