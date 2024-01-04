@@ -89,6 +89,8 @@ runs:
   steps:
     - name: Checkout
       uses: docker://public.ecr.aws/l7o7z1g8/actions/cloudbees-io-checkout:v1.0.8
+      # TODO: use interpolated tag once we aligned on the release process
+      #uses: docker://registry.saas-dev.beescloud.com/staging/cloudbees-io-checkout:${{ action.scm.sha }}
       env:
         CLOUDBEES_EVENT_PATH: /cloudbees/event.json
       shell: sh
