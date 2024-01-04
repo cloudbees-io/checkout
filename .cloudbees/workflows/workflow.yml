@@ -25,7 +25,7 @@ jobs:
           go test --cover ./...
       - id: dockerconfig
         name: Configure container registry credentials
-        uses: cloudbees-io/configure-oci-credentials@v0
+        uses: cloudbees-io/configure-oci-credentials@v1
         with:
           registry: ${{ vars.STAGING_DOCKER_REGISTRY }}
           username: ${{ secrets.STAGING_DOCKER_USERNAME }}
