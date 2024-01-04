@@ -294,14 +294,6 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	}
 	cli.SetEnv("RUNNER_TEMP", temp)
 
-	tempHome := filepath.Join(temp, uniqueID)
-	if err := os.MkdirAll(tempHome, os.ModePerm); err != nil {
-		return err
-	}
-
-	fmt.Printf("Temporarily overriding HOME='%s' before making global git config changes\n", tempHome)
-	cli.SetEnv("HOME", tempHome)
-
 	if cfg.SetSafeDirectory {
 		fmt.Println("Adding Repository directory to the temporary git global config as a safe directory")
 		if err := cli.AddConfigStr(true, "safe.directory", workspacePath); err != nil {

@@ -8,15 +8,21 @@ on:
       - "*"
 
 jobs:
-  
+
   build:
     steps:
-      - uses: .
+      - name: Git checkout
+        uses: docker://alpine/git:2.43.0
+        run: |
+          set -x
+          git config --global --add safe.directory `pwd`
+          git clone ${{ cloudbees.scm.repositoryUrl }} .
+          git checkout ${{ cloudbees.scm.sha }}
       - id: test
-        name: Build and test
+        name: Run unit tests
         uses: docker://golang:1.21
         run: |
-          go test ./...
+          go test --cover ./...
       - id: dockerconfig
         name: Configure container registry credentials
         uses: cloudbees-io/configure-oci-credentials@v0
@@ -29,4 +35,18 @@ jobs:
         uses: cloudbees-io/kaniko@v1
         with:
           dockerfile: Dockerfile
-          destination: ${{ cloudbees.scm.branch == 'main' && format('{0}/staging/cloudbees-io-checkout:v1.0.8', vars.STAGING_DOCKER_REGISTRY) || format('{0}/staging/cloudbees-io-checkout:{1}', vars.STAGING_DOCKER_REGISTRY, cloudbees.version) }}
+          destination: ${{ cloudbees.scm.branch == 'main' && format('{0}/staging/cloudbees-io-checkout:v1.0.8', vars.STAGING_DOCKER_REGISTRY) || format('{0}/staging/cloudbees-io-checkout:{1},{0}/staging/cloudbees-io-checkout:{2}', vars.STAGING_DOCKER_REGISTRY, cloudbees.version, cloudbees.scm.sha) }}
+
+  test:
+    needs: build
+    steps:
+      - name: Run Action
+        uses: ./
+      - name: Verify that the repo was checked out
+        uses: docker://golang:1.20.5-alpine3.18
+        run: |
+          set -x
+          [ -d .git ]
+          [ -f Dockerfile ]
+          go build .
+
