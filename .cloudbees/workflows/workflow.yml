@@ -51,4 +51,3 @@ jobs:
           [ -d .git ]
           [ -f Dockerfile ]
           go build .
-
