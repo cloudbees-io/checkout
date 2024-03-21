@@ -35,7 +35,7 @@ jobs:
         uses: cloudbees-io/kaniko@v1
         with:
           dockerfile: Dockerfile
-          destination: ${{ vars.STAGING_DOCKER_REGISTRY }}/staging/cloudbees-io-checkout:${{ cloudbees.scm.sha }}${{ cloudbees.scm.branch == 'main' && format(',{0}/staging/cloudbees-io-checkout:1.0.10,{0}/staging/cloudbees-io-checkout:latest', vars.STAGING_DOCKER_REGISTRY)  || format(',{0}/staging/cloudbees-io-checkout:{1}', vars.STAGING_DOCKER_REGISTRY, cloudbees.version) }}
+          destination: ${{ vars.STAGING_DOCKER_REGISTRY }}/staging/cloudbees-io-checkout:${{ cloudbees.scm.sha }}${{ cloudbees.scm.branch == 'main' && format(',{0}/staging/cloudbees-io-checkout:1.0.11,{0}/staging/cloudbees-io-checkout:latest', vars.STAGING_DOCKER_REGISTRY)  || format(',{0}/staging/cloudbees-io-checkout:{1}', vars.STAGING_DOCKER_REGISTRY, cloudbees.version) }}
           labels: maintaner=sdp-pod-3,email=engineering@cloudbees.io
           context: ${{ cloudbees.workspace }}
 
