@@ -10,6 +10,7 @@ on:
 jobs:
 
   build:
+    if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com' || cloudbees.api.url == 'https://api.cloudbees.io'
     permissions:
       scm-token-own: read
       id-token: write
@@ -46,6 +47,7 @@ jobs:
           labels: maintainer=sdp-pod-3,email=engineering@cloudbees.io
 
   test:
+    if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com'
     needs: build
     steps:
       - name: Run Action
