@@ -1,0 +1,21 @@
+= Development process
+
+== Releasing
+
+To release a new version from the `main` branch:
+
+. Ensure you have a clean up to date checkout of the `main` branch
+. Ensure that the container image has been synchronized to the public repository
+. Run `make prepare-patch-release` or `make prepare-minor-release` or `make prepare-major-release` depending on the desired next version number to create a local release tag.
++
+NOTE: if you need to abort the release at this point, delete the local tag that you just created.
+. Publish the release tag with `make publish-release`
+. Run final sanity test of the release version (i.e. verify that the action works with the specific release version specified)
+. Run `make prepare-floating-tags` to update the floating tags based on the current commit's release tag
+. Publish the floating tags with `make publish-floating-tags`
+
+To roll back the floating tags to a previous release
+
+. Ensure you have a clean up to date checkout of the tag to revert the floating tags to
+. Run `make prepare-floating-tags` to update the floating tags based on the current commit's release tag
+. Publish the floating tags with `make publish-floating-tags`

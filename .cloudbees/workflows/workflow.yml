@@ -10,42 +10,50 @@ on:
 jobs:
 
   build:
+    if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com' || cloudbees.api.url == 'https://api.cloudbees.io'
+    permissions:
+      scm-token-own: read
+      id-token: write
     steps:
       - name: Git checkout
-        uses: docker://alpine/git:2.43.0
+        uses: https://github.com/cloudbees-io/checkout@v1
+
+      - name: Run unit tests and verify coding rules
+        uses: docker://golang:1.22.1
         run: |
-          set -x
-          git config --global --add safe.directory `pwd`
-          git clone ${{ cloudbees.scm.repositoryUrl }} .
-          git checkout ${{ cloudbees.scm.sha }}
-      - id: test
-        name: Run unit tests
-        uses: docker://golang:1.21
-        run: |
-          go test --cover ./...
-      - id: dockerconfig
-        name: Configure container registry credentials
-        uses: cloudbees-io/configure-oci-credentials@v1
+          make verify
+
+      - name: Login to AWS
+        uses: https://github.com/cloudbees-io/configure-aws-credentials@v1
         with:
-          registry: ${{ vars.STAGING_DOCKER_REGISTRY }}
-          username: ${{ secrets.STAGING_DOCKER_USERNAME }}
-          password: ${{ secrets.STAGING_DOCKER_PASSWORD }}
-      - id: build-image
-        name: Build image
-        uses: cloudbees-io/kaniko@v1
+          aws-region: us-east-1
+          role-to-assume: ${{ vars.oidc_staging_iam_role }}
+          role-duration-seconds: "3600"
+
+      - name: Configure container registry for Staging ECR
+        uses: https://github.com/cloudbees-io/configure-ecr-credentials@v1
+
+      - name: Login to Dockerhub using Cloudbees service account
+        uses: https://github.com/cloudbees-io/configure-oci-credentials@v1
         with:
-          dockerfile: Dockerfile
-          destination: ${{ vars.STAGING_DOCKER_REGISTRY }}/staging/cloudbees-io-checkout:${{ cloudbees.scm.sha }}${{ cloudbees.scm.branch == 'main' && format(',{0}/staging/cloudbees-io-checkout:1.0.11,{0}/staging/cloudbees-io-checkout:latest', vars.STAGING_DOCKER_REGISTRY)  || format(',{0}/staging/cloudbees-io-checkout:{1}', vars.STAGING_DOCKER_REGISTRY, cloudbees.version) }}
-          labels: maintaner=sdp-pod-3,email=engineering@cloudbees.io
-          context: ${{ cloudbees.workspace }}
+          registry: docker.io
+          username: ${{ secrets.e5bbc3_dockerhub_user }}
+          password: ${{ secrets.e5bbc3_dockerhub_password }}
+
+      - name: Build image
+        uses: https://github.com/cloudbees-io/kaniko@v1
+        with:
+          destination: 020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:${{ cloudbees.scm.sha }}
+          labels: maintainer=sdp-pod-3,email=engineering@cloudbees.io
 
   test:
+    if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com'
     needs: build
     steps:
       - name: Run Action
-        uses: ./
+        uses: ./.cloudbees/testing
       - name: Verify that the repo was checked out
-        uses: docker://golang:1.20.5-alpine3.18
+        uses: docker://golang:1.22.1
         run: |
           set -x
           [ -d .git ]
