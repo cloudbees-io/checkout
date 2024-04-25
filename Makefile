@@ -63,9 +63,12 @@ format: ## Applies the project code style
 -check-main-matches-remote:
 	@echo "$(ANSI_BOLD)⚡️ Checking local 'main' branch against remote ...$(ANSI_RESET)"
 	@git fetch origin --force --tags main 2>/dev/null && \
-	[ "$$(git rev-parse main)" = "$$(git rev-parse origin/main)" ] && \
-	echo "$(ANSI_BOLD)✅ Remote 'main' branch matches local 'main' branch$(ANSI_RESET)" || \
-	( echo "$(ANSI_BOLD)❌ Remote 'main' branch does not match local 'main' branch$(ANSI_RESET)" ; exit 1 )
+	if [ "$$(git rev-parse main)" = "$$(git rev-parse origin/main)" ] ; then \
+	  echo "$(ANSI_BOLD)✅ Remote 'main' branch matches local 'main' branch$(ANSI_RESET)" ; \
+	else \
+	  echo "$(ANSI_BOLD)❌ Remote 'main' branch does not match local 'main' branch$(ANSI_RESET)" ; \
+	  exit 1 ; \
+	fi
 
 .PHONY: -check-main-already-tagged
 -check-main-already-tagged: -check-main-matches-remote
@@ -75,13 +78,19 @@ format: ## Applies the project code style
 	  echo "$(ANSI_BOLD)❌ Must be in a clean Git workspace to run this target$(ANSI_RESET)" ; \
 	  exit 1 ; \
 	fi
-	@[ "$$(git rev-parse main)" = "$$(git rev-parse HEAD)" ] && \
-	echo "$(ANSI_BOLD)❌ Must be on 'main' branch to run this target $(ANSI_RESET)" && exit 1 ; \
-	echo "$(ANSI_BOLD)✅ On 'main' branch$(ANSI_RESET)"
+	@if [ "$$(git rev-parse main)" = "$$(git rev-parse HEAD)" ] ; then \
+	  echo "$(ANSI_BOLD)✅ On 'main' branch$(ANSI_RESET)" ; \
+	else \
+	  echo "$(ANSI_BOLD)❌ Must be on 'main' branch to run this target $(ANSI_RESET)" ; \
+	  exit 1 ; \
+	fi
 	@LAST_VERSION="$$(git describe --tags --match 'v*.*.*' --exact-match main 2>/dev/null | sed -e 's:^tags/::')" ; \
-	[ "$$(git rev-parse main)" = "$$(git rev-parse "$${LAST_VERSION}^{commit}"  2>/dev/null)" ] && \
-	echo "$(ANSI_BOLD)❌ Tags for 'main' were already created as version $$LAST_VERSION$(ANSI_RESET)" && exit 1 ; \
-	echo "$(ANSI_BOLD)✅ Lastest 'main' branch has not been tagged yet$(ANSI_RESET)"
+	if [ "$$(git rev-parse main)" = "$$(git rev-parse "$${LAST_VERSION}^{commit}"  2>/dev/null)" ] ; then \
+	  echo "$(ANSI_BOLD)❌ Tags for 'main' were already created as version $$LAST_VERSION$(ANSI_RESET)" ; \
+	  exit 1 ; \
+	else \
+	  echo "$(ANSI_BOLD)✅ Lastest 'main' branch has not been tagged yet$(ANSI_RESET)" ; \
+	fi
 
 .PHONY: preview-patch-release
 preview-patch-release: -check-main-already-tagged ## Displays the next a patch release from the main branch
@@ -138,11 +147,11 @@ prepare-floating-tags: ## Synchronizes the floating tags with the current commit
 	fi ; \
 	version="$$CUR_VERSION" ; \
 	echo "$(ANSI_BOLD)⚡️ Current commit has release tag $$CUR_VERSION, updating floating tags to match ...$(ANSI_RESET)" ; \
-	while echo "$(ANSI_BOLD)$$version" | grep -q '\.[0-9][0-9]*$$$(ANSI_RESET)' ; \
+	while echo "$$version" | grep -q '\.[0-9][0-9]*$$' ; \
 	do \
-		version=$$(echo "$(ANSI_BOLD)$$version" | sed 's/\.[0-9][0-9]*$$//$(ANSI_RESET)') ; \
+		version=$$(echo "$$version" | sed 's/\.[0-9][0-9]*$$//') ; \
 		if [ "$$(git rev-parse "$$version^{commit}" 2>/dev/null)" != "$$(git rev-parse "$${CUR_VERSION}^{commit}")" ] ; then \
-			git tag -f -s -m "chore: $$CUR_VERSION release" $$version $$CUR_VERSION ; \
+			git tag -f -s -m "chore: $$CUR_VERSION release" $$version "$$CUR_VERSION^{}" ; \
 		fi ; \
 	done ; \
 	echo "$(ANSI_BOLD)✅ Floating tags updated to match release tag $$CUR_VERSION$(ANSI_RESET)"
@@ -150,23 +159,23 @@ prepare-floating-tags: ## Synchronizes the floating tags with the current commit
 .PHONY: publish-floating-tags
 publish-floating-tags: ## Pushes any floating tags that match the current commit's release tag
 	@CUR_VERSION="$$(git describe --tags --match 'v*.*.*' --exact-match main 2>/dev/null | sed -e 's:^tags/::')" ; \
-	if [ -z "$${LAST_VERSION}" ] ; \
+	if [ -z "$${CUR_VERSION}" ] ; \
 	then \
 		echo "$(ANSI_BOLD)❌ Current commit does not have a release tag$(ANSI_RESET)" ; \
 		exit 1 ; \
 	fi ; \
-	echo "$(ANSI_BOLD)⚡️ Looking for floating tags that point to $$LAST_VERSION ...$(ANSI_RESET)" ; \
+	echo "$(ANSI_BOLD)⚡️ Looking for floating tags that point to $$CUR_VERSION ...$(ANSI_RESET)" ; \
 	tags="" ; \
-	version="$$LAST_VERSION" ; \
-	while echo "$(ANSI_BOLD)$$version" | grep -q '\.[0-9][0-9]*$$$(ANSI_RESET)' ; \
+	version="$$CUR_VERSION" ; \
+	while echo "$$version" | grep -q '\.[0-9][0-9]*$$' ; \
 	do \
-		version=$$(echo "$(ANSI_BOLD)$$version" | sed 's/\.[0-9][0-9]*$$//$(ANSI_RESET)') ; \
-		if [ "$$(git rev-parse "$$version^{commit}" 2>/dev/null)" = "$$(git rev-parse "$${LAST_VERSION}^{commit}")" ] ; then \
+		version=$$(echo "$$version" | sed 's/\.[0-9][0-9]*$$//') ; \
+		if [ "$$(git rev-parse "$$version^{commit}" 2>/dev/null)" = "$$(git rev-parse "$${CUR_VERSION}^{commit}")" ] ; then \
 			tags="$$tags $$version" ; \
 		fi ; \
 	done ; \
-	if [ -z "$tags" ] ; then \
-		echo "$(ANSI_BOLD)✅ No floating tags point to the current version $$LAST_VERSION$(ANSI_RESET)" ; \
+	if [ -z "$$tags" ] ; then \
+		echo "$(ANSI_BOLD)✅ No floating tags point to the current version $$CUR_VERSION$(ANSI_RESET)" ; \
 	else \
 		echo "$(ANSI_BOLD)⚡️ Publishing floating tag(s)$$tags ...$(ANSI_RESET)" ; \
 		git push --force origin$$tags ; \
