@@ -1,0 +1,35 @@
+{
+    "id": "event1",
+    "type": "PULL_REQUEST",
+    "scmConnectorId": "fake-scm-connector-id",
+    "ref": "fake-ref",
+    "sha": "fake-commit-sha",
+    "orgId": "fake-org-id",
+    "componentId": "fake-component-id",
+    "triggerId": "fake-trigger-id",
+    "buildId": "1",
+    "raw": {
+        "sampleKey": "myvalue"
+    },
+    "eventTimestamp": "2023-01-01T12:00:00Z",
+    "version": "1.0.0",
+    "pullRequest": {
+        "pullRequestId": "fake-pr-id",
+        "activity": "opened",
+        "MergeCommitSHASupported": false,
+        "head": {
+            "branch": "fake-head-branch",
+            "sha": "fake-head-commit-sha"
+        },
+        "base": {
+            "branch": "fake-base-branch",
+            "sha": "fake-base-commit-sha"
+        }
+    },
+    "runId": "fake-run-id",
+    "runAttempt": 1,
+    "runNumber": 10,
+    "committerDate": "2023-01-01T12:00:00Z",
+    "committerName": "cloudbees.workflow",
+    "committerEmail": "workflow@cloudbees.io"
+}

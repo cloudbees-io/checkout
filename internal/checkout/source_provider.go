@@ -44,6 +44,13 @@ type Config struct {
 	GitlabServerURL              string
 	Commit                       string
 	githubWorkflowOrganizationId string
+	PullRequest                  *PullRequest
+}
+
+type PullRequest struct {
+	HeadSha       string
+	BaseSha       string
+	CommitterDate string
 }
 
 const (
@@ -127,6 +134,16 @@ func (cfg *Config) validate() error {
 		cfg.Commit = cfg.Ref
 		cfg.Ref = ""
 	}
+
+	// pull request data
+	prData, err := pullRequestInfo(eventContext)
+	if err != nil {
+		return err
+	}
+	if prData != nil {
+		cfg.PullRequest = prData
+	}
+
 	core.Debug("ref = %s", cfg.Ref)
 	core.Debug("commit = %s", cfg.Commit)
 
@@ -199,6 +216,43 @@ func (cfg *Config) validate() error {
 	}
 
 	return nil
+}
+
+func pullRequestInfo(eventContext map[string]interface{}) (*PullRequest, error) {
+	pr, ok := getMapFromMap(eventContext, "pullRequest")
+	if !ok {
+		return nil, nil
+	}
+
+	if ok, _ := getBoolFromMap(pr, "MergeCommitSHASupported"); ok {
+		return nil, nil
+	}
+
+	var prData = PullRequest{}
+	head, ok := getMapFromMap(pr, "head")
+	if ok {
+		sha, ok := getStringFromMap(head, "sha")
+		if !ok {
+			return nil, fmt.Errorf("pull request head sha not found")
+		}
+		prData.HeadSha = sha
+	}
+
+	base, ok := getMapFromMap(pr, "base")
+	if ok {
+		sha, ok := getStringFromMap(base, "sha")
+		if !ok {
+			return nil, fmt.Errorf("pull request base sha not found")
+		}
+		prData.BaseSha = sha
+	}
+	committerDate, ok := getStringFromMap(eventContext, "committerDate")
+	if !ok {
+		return nil, fmt.Errorf("pull request committer date not found")
+	}
+	prData.CommitterDate = committerDate
+
+	return &prData, nil
 }
 
 func findEventContext() map[string]interface{} {
@@ -402,6 +456,19 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		if err := cli.LfsInstall(); err != nil {
 			return err
 		}
+	}
+
+	if cfg.PullRequest != nil {
+		core.StartGroup("Merging pull request")
+		mergeCommit, err := cli.Merge(repositoryURL, cfg.PullRequest.BaseSha, cfg.PullRequest.HeadSha, cfg.PullRequest.CommitterDate, repositoryPath)
+		if err != nil {
+			return fmt.Errorf("failed to merge pull request: %w", err)
+		}
+		cfg.Commit = mergeCommit
+		fmt.Printf("Pull request merged with commit: %s\n", mergeCommit)
+		core.EndGroup("Pull request merged")
+
+		return nil
 	}
 
 	// Fetch the Repository
