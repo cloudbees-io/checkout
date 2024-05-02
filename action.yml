@@ -88,7 +88,7 @@ runs:
   using: composite
   steps:
     - name: Checkout
-      uses: docker://020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:${{ action.scm.sha }}
+      uses: docker://public.ecr.aws/l7o7z1g8/actions/cloudbees-io-checkout:${{ action.scm.sha }}
       env:
         CLOUDBEES_EVENT_PATH: /cloudbees/event.json
       shell: sh
