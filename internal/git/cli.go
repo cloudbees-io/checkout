@@ -103,10 +103,10 @@ func (g *GitCLI) runMerge(args ...string) (string, error) { // this function is 
 	c.Stdout = &stdout
 	err := c.Run()
 	if e := (&exec.ExitError{}); err != nil && errors.As(err, &e) {
-		core.Debug("%d", e.ExitCode())
+		core.Debug("merge command exited with status %d", e.ExitCode())
 		return stdout.String(), err
 	} else if err != nil {
-		core.Debug("126")
+		core.Debug("merge command exited with status %d", 126)
 	} else {
 		core.Debug("0")
 	}
