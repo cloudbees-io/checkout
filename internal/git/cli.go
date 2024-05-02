@@ -28,20 +28,12 @@ type GitCLI struct {
 
 // NewGitCLI creates a new GitCLI instance
 func NewGitCLI(ctx context.Context) (*GitCLI, error) {
-	var exe string
-	var err error
-
-	// Check if the git CLI is available in the runner's temp directory
-	if gitCliPath := lookupGitCliInRunnerTemp(); gitCliPath != "" {
-		exe = gitCliPath
-	} else {
-		exe, err = exec.LookPath("git")
-		if err != nil && !errors.Is(err, exec.ErrDot) {
+	exe, err := exec.LookPath("git")
+	if err != nil && !errors.Is(err, exec.ErrDot) {
+		return nil, err
+	} else if errors.Is(err, exec.ErrDot) {
+		if exe, err = filepath.Abs(exe); err != nil {
 			return nil, err
-		} else if errors.Is(err, exec.ErrDot) {
-			if exe, err = filepath.Abs(exe); err != nil {
-				return nil, err
-			}
 		}
 	}
 
@@ -52,20 +44,6 @@ func NewGitCLI(ctx context.Context) (*GitCLI, error) {
 	}
 	env := os.Environ()
 	return &GitCLI{ctx: ctx, exe: exe, env: envEntriesToMap(env), cwd: cwd, quiet: false, log: true, mergeBinary: mergeBinary}, nil
-}
-
-func lookupGitCliInRunnerTemp() string {
-	runnerTemp, ok := os.LookupEnv("RUNNER_TEMP")
-	if !ok || runnerTemp == "" {
-		return ""
-	}
-
-	gitCliPath := filepath.Join(runnerTemp, "git")
-	if _, err := os.Stat(gitCliPath); os.IsNotExist(err) {
-		return ""
-	}
-
-	return gitCliPath
 }
 
 // SetEnv sets the environment variable for the GitCLI
@@ -108,7 +86,7 @@ func (g *GitCLI) GlobalConfigPath() (string, error) {
 	return "", fmt.Errorf("unable to locate config file '%s'", filepath.Join("$HOME", ".gitconfig"))
 }
 
-func (g *GitCLI) runMerge(args ...string) (string, error) {
+func (g *GitCLI) runMerge(args ...string) (string, error) { // this function is implemented similar to the 'run' function below
 	c := exec.CommandContext(g.ctx, g.mergeBinary, args...)
 	c.Dir = g.cwd
 	c.Env = envMapToEntries(g.env)
