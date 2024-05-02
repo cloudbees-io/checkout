@@ -464,8 +464,7 @@ func (g *GitCLI) Merge(repositoryURL, baseSHA, headSHA, committerDate, workingDi
 	stdout, err := g.runMerge("merge", "--clone-url", repositoryURL,
 		"--base-sha", baseSHA,
 		"--head-sha", headSHA,
-		"--committer-date", committerDate,
-		"--working-dir", workingDir)
+		"--committer-date", committerDate)
 
 	return stdout, err
 }
