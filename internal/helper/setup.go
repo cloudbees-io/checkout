@@ -5,12 +5,13 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	format "github.com/go-git/go-git/v5/plumbing/format/config"
-	"github.com/go-git/go-git/v5/plumbing/transport"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	format "github.com/go-git/go-git/v5/plumbing/format/config"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 )
 
 func uniqueId(serverURL string) string {

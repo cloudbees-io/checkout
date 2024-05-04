@@ -464,14 +464,16 @@ func (g *GitCLI) Merge(repositoryURL, baseSHA, headSHA, committerDate, workingDi
 	stdout, err := g.runMerge("merge", "--clone-url", repositoryURL,
 		"--base-sha", baseSHA,
 		"--head-sha", headSHA,
-		"--committer-date", committerDate)
+		"--committer-date", committerDate,
+		"--working-dir", workingDir)
 
 	return stdout, err
 }
 
 type FetchOptions struct {
-	Filter     string
-	FetchDepth int
+	Filter          string
+	FetchDepth      int
+	LocalRepository string
 }
 
 func (g *GitCLI) Fetch(refSpec []string, options FetchOptions) error {
@@ -507,7 +509,11 @@ func (g *GitCLI) Fetch(refSpec []string, options FetchOptions) error {
 		}
 	}
 
-	args = append(args, "origin")
+	if options.LocalRepository != "" {
+		args = append(args, options.LocalRepository)
+	} else {
+		args = append(args, "origin")
+	}
 	args = append(args, refSpec...)
 
 	return g.run(args...)

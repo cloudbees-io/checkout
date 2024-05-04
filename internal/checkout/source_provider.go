@@ -48,9 +48,10 @@ type Config struct {
 }
 
 type PullRequest struct {
-	HeadSha       string
-	BaseSha       string
-	CommitterDate string
+	HeadSha        string
+	BaseSha        string
+	CommitterDate  string
+	LocalWorkspace string
 }
 
 const (
@@ -355,6 +356,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}
 	}
 
+	core.Debug("Repository Path = %s", repositoryPath)
 	cli.SetCwd(repositoryPath)
 
 	// Prepare existing directory, otherwise recreate
@@ -458,9 +460,41 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}
 	}
 
-	if cfg.PullRequest != nil {
+	if cfg.doLocalMerge() {
 		core.StartGroup("Merging pull request")
-		mergeCommit, err := cli.Merge(repositoryURL, cfg.PullRequest.BaseSha, cfg.PullRequest.HeadSha, cfg.PullRequest.CommitterDate, repositoryPath)
+		workingDir := filepath.Join(temp, "merge")
+		if err := os.MkdirAll(workingDir, os.ModePerm); err != nil {
+			return fmt.Errorf("failed to create working directory for local merge: %w", err)
+		}
+
+		core.StartGroup("Initializing the Repository")
+		if err := cli.Init(workingDir); err != nil {
+			return err
+		}
+		core.EndGroup("Repository initialized")
+		cli.SetCwd(workingDir)
+		cleaner, err := auth.ConfigureToken(
+			cli, "", false, cfg.serverURL(), auth.TokenAuth{
+				Provider: cfg.Provider,
+				ScmToken: cfg.Token,
+				ApiToken: cfg.CloudBeesApiToken,
+				ApiURL:   cfg.CloudBeesApiURL,
+			})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if !cfg.PersistCredentials {
+				if err := cleaner(); err != nil {
+					if retErr == nil {
+						retErr = err
+					} else {
+						retErr = errors.Join(retErr, err)
+					}
+				}
+			}
+		}()
+		mergeCommit, err := cli.Merge(repositoryURL, cfg.PullRequest.BaseSha, cfg.PullRequest.HeadSha, cfg.PullRequest.CommitterDate, workingDir)
 		if err != nil {
 			return fmt.Errorf("failed to merge pull request: %w", err)
 		}
@@ -468,7 +502,8 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		fmt.Printf("Pull request merged with commit: %s\n", mergeCommit)
 		core.EndGroup("Pull request merged")
 
-		return nil
+		cfg.PullRequest.LocalWorkspace = workingDir
+		cli.SetCwd(repositoryPath)
 	}
 
 	// Fetch the Repository
@@ -477,8 +512,17 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	if cfg.SparseCheckout != "" {
 		fetchOptions.Filter = "blob:none"
 	}
+	var refSpecAllHistory, refSpec []string
+	if cfg.doLocalMerge() {
+		fetchOptions.LocalRepository = cfg.PullRequest.LocalWorkspace
+		refSpecAllHistory = append(refSpecAllHistory, cfg.Commit)
+		refSpec = append(refSpec, cfg.Commit)
+	} else {
+		refSpecAllHistory = getRefSpecForAllHistory(cfg.Ref, cfg.Commit)
+		refSpec = getRefSpec(cfg.Ref, cfg.Commit, cfg.Provider)
+	}
 	if cfg.FetchDepth <= 0 {
-		if err := cli.Fetch(getRefSpecForAllHistory(cfg.Ref, cfg.Commit), fetchOptions); err != nil {
+		if err := cli.Fetch(refSpecAllHistory, fetchOptions); err != nil {
 			return err
 		}
 
@@ -487,13 +531,13 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		if refPresent, err := testRef(cli, cfg.Ref, cfg.Commit); err != nil {
 			return err
 		} else if !refPresent {
-			if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit, cfg.Provider), fetchOptions); err != nil {
+			if err := cli.Fetch(refSpec, fetchOptions); err != nil {
 				return err
 			}
 		}
 	} else {
 		fetchOptions.FetchDepth = cfg.FetchDepth
-		if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit, cfg.Provider), fetchOptions); err != nil {
+		if err := cli.Fetch(refSpec, fetchOptions); err != nil {
 			return err
 		}
 	}
@@ -538,7 +582,13 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 
 	// Checkout
 	core.StartGroup("Checking out the Ref")
-	if err := cli.Checkout(checkoutInfo.ref, checkoutInfo.startPoint); err != nil {
+	var checkoutRef string
+	if cfg.doLocalMerge() {
+		checkoutRef = cfg.Commit
+	} else {
+		checkoutRef = checkoutInfo.ref
+	}
+	if err := cli.Checkout(checkoutRef, checkoutInfo.startPoint); err != nil {
 		return err
 	}
 	core.EndGroup("Ref checked out")
@@ -665,6 +715,23 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	}
 
 	return nil
+}
+
+func (cfg *Config) doLocalMerge() bool {
+	if cfg.PullRequest == nil {
+		return false
+	}
+	eventContext := findEventContext()
+	if !cfg.isWorkflowRepository(eventContext) {
+		return false
+	}
+
+	ref, ok := getStringFromMap(eventContext, "sha")
+	if !ok {
+		return false
+	}
+
+	return cfg.Commit == ref
 }
 
 func (cfg *Config) checkCommitInfo(commitInfo string) error {
@@ -814,6 +881,8 @@ func (cfg *Config) isWorkflowRepository(eventContext map[string]interface{}) boo
 	ctxRepository, haveR := getStringFromMap(eventContext, "repository")
 	core.Debug("ctx.provider = %s", ctxProvider)
 	core.Debug("ctx.repository = %s", ctxRepository)
+	core.Debug("cfg.provider = %s", cfg.Provider)
+	core.Debug("cfg.repository = %s", cfg.Repository)
 
 	return haveP && cfg.Provider == ctxProvider && haveR && cfg.Repository == ctxRepository
 }
