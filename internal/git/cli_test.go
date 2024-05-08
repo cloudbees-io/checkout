@@ -17,10 +17,10 @@ func Test_runMerge(t *testing.T) {
 	require.NoError(t, err)
 
 	var g = &GitCLI{
-		ctx:         context.Background(),
-		mergeBinary: dir + "/merge.sh",
+		ctx: context.Background(),
 	}
-	out, err := g.runMerge("arg1", "arg2", "arg3")
+	mergeBin := dir + "/merge.sh"
+	out, err := g.runMerge(mergeBin, "arg1", "arg2", "arg3")
 	require.NoError(t, err)
 	require.Equal(t, "arg1 arg2 arg3\n", out)
 }

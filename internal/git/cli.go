@@ -17,13 +17,12 @@ import (
 
 // GitCLI maintains a context for interacting with the Git command line executable.
 type GitCLI struct {
-	ctx         context.Context
-	exe         string
-	env         map[string]string
-	cwd         string
-	quiet       bool
-	log         bool
-	mergeBinary string
+	ctx   context.Context
+	exe   string
+	env   map[string]string
+	cwd   string
+	quiet bool
+	log   bool
 }
 
 // NewGitCLI creates a new GitCLI instance
@@ -37,13 +36,12 @@ func NewGitCLI(ctx context.Context) (*GitCLI, error) {
 		}
 	}
 
-	mergeBinary, _ := exec.LookPath("merge")
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 	env := os.Environ()
-	return &GitCLI{ctx: ctx, exe: exe, env: envEntriesToMap(env), cwd: cwd, quiet: false, log: true, mergeBinary: mergeBinary}, nil
+	return &GitCLI{ctx: ctx, exe: exe, env: envEntriesToMap(env), cwd: cwd, quiet: false, log: true}, nil
 }
 
 // SetEnv sets the environment variable for the GitCLI
@@ -86,8 +84,8 @@ func (g *GitCLI) GlobalConfigPath() (string, error) {
 	return "", fmt.Errorf("unable to locate config file '%s'", filepath.Join("$HOME", ".gitconfig"))
 }
 
-func (g *GitCLI) runMerge(args ...string) (string, error) { // this function is implemented similar to the 'run' function below
-	c := exec.CommandContext(g.ctx, g.mergeBinary, args...)
+func (g *GitCLI) runMerge(mergeBin string, args ...string) (string, error) { // this function is implemented similar to the 'run' function below
+	c := exec.CommandContext(g.ctx, mergeBin, args...)
 	c.Dir = g.cwd
 	c.Env = envMapToEntries(g.env)
 
@@ -456,15 +454,18 @@ func (g *GitCLI) RemoteAdd(name string, url string) error {
 	return g.run("remote", "add", name, url)
 }
 
-func (g *GitCLI) Merge(repositoryURL, baseSHA, headSHA, committerDate, workingDir string) (string, error) {
-	if g.mergeBinary == "" {
-		return "", fmt.Errorf("merge binary not found")
+func (g *GitCLI) Merge(repositoryURL, commitSha, workingDir string) (string, error) {
+	mergeBinary, err := exec.LookPath("merge")
+	if err != nil && !errors.Is(err, exec.ErrDot) {
+		return "", err
+	} else if errors.Is(err, exec.ErrDot) {
+		if mergeBinary, err = filepath.Abs(mergeBinary); err != nil {
+			return "", err
+		}
 	}
 
-	stdout, err := g.runMerge("merge", "--clone-url", repositoryURL,
-		"--base-sha", baseSHA,
-		"--head-sha", headSHA,
-		"--committer-date", committerDate,
+	stdout, err := g.runMerge(mergeBinary, "merge", "--clone-url", repositoryURL,
+		"--commit-sha", commitSha,
 		"--working-dir", workingDir)
 
 	return stdout, err

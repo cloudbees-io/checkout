@@ -44,14 +44,6 @@ type Config struct {
 	GitlabServerURL              string
 	Commit                       string
 	githubWorkflowOrganizationId string
-	PullRequest                  *PullRequest
-}
-
-type PullRequest struct {
-	HeadSha        string
-	BaseSha        string
-	CommitterDate  string
-	LocalWorkspace string
 }
 
 const (
@@ -135,16 +127,6 @@ func (cfg *Config) validate() error {
 		cfg.Commit = cfg.Ref
 		cfg.Ref = ""
 	}
-
-	// pull request data
-	prData, err := pullRequestInfo(eventContext)
-	if err != nil {
-		return err
-	}
-	if prData != nil {
-		cfg.PullRequest = prData
-	}
-
 	core.Debug("ref = %s", cfg.Ref)
 	core.Debug("commit = %s", cfg.Commit)
 
@@ -217,43 +199,6 @@ func (cfg *Config) validate() error {
 	}
 
 	return nil
-}
-
-func pullRequestInfo(eventContext map[string]interface{}) (*PullRequest, error) {
-	pr, ok := getMapFromMap(eventContext, "pullRequest")
-	if !ok {
-		return nil, nil
-	}
-
-	if ok, _ := getBoolFromMap(pr, "MergeCommitSHASupported"); ok {
-		return nil, nil
-	}
-
-	var prData = PullRequest{}
-	head, ok := getMapFromMap(pr, "head")
-	if ok {
-		sha, ok := getStringFromMap(head, "sha")
-		if !ok {
-			return nil, fmt.Errorf("pull request head sha not found")
-		}
-		prData.HeadSha = sha
-	}
-
-	base, ok := getMapFromMap(pr, "base")
-	if ok {
-		sha, ok := getStringFromMap(base, "sha")
-		if !ok {
-			return nil, fmt.Errorf("pull request base sha not found")
-		}
-		prData.BaseSha = sha
-	}
-	committerDate, ok := getStringFromMap(eventContext, "committerDate")
-	if !ok {
-		return nil, fmt.Errorf("pull request committer date not found")
-	}
-	prData.CommitterDate = committerDate
-
-	return &prData, nil
 }
 
 func findEventContext() map[string]interface{} {
@@ -460,50 +405,9 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}
 	}
 
-	if cfg.doLocalMerge() {
-		core.StartGroup("Merging pull request")
-		workingDir := filepath.Join(temp, "merge")
-		if err := os.MkdirAll(workingDir, os.ModePerm); err != nil {
-			return fmt.Errorf("failed to create working directory for local merge: %w", err)
-		}
-
-		core.StartGroup("Initializing the Repository")
-		if err := cli.Init(workingDir); err != nil {
-			return err
-		}
-		core.EndGroup("Repository initialized")
-		cli.SetCwd(workingDir)
-		cleaner, err := auth.ConfigureToken(
-			cli, "", false, cfg.serverURL(), auth.TokenAuth{
-				Provider: cfg.Provider,
-				ScmToken: cfg.Token,
-				ApiToken: cfg.CloudBeesApiToken,
-				ApiURL:   cfg.CloudBeesApiURL,
-			})
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if !cfg.PersistCredentials {
-				if err := cleaner(); err != nil {
-					if retErr == nil {
-						retErr = err
-					} else {
-						retErr = errors.Join(retErr, err)
-					}
-				}
-			}
-		}()
-		mergeCommit, err := cli.Merge(repositoryURL, cfg.PullRequest.BaseSha, cfg.PullRequest.HeadSha, cfg.PullRequest.CommitterDate, workingDir)
-		if err != nil {
-			return fmt.Errorf("failed to merge pull request: %w", err)
-		}
-		cfg.Commit = mergeCommit
-		fmt.Printf("Pull request merged with commit: %s\n", mergeCommit)
-		core.EndGroup("Pull request merged")
-
-		cfg.PullRequest.LocalWorkspace = workingDir
-		cli.SetCwd(repositoryPath)
+	mergeLoc, err := cfg.doLocalMerge(cli, repositoryURL, repositoryPath, temp)
+	if err != nil {
+		return err
 	}
 
 	// Fetch the Repository
@@ -512,17 +416,12 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	if cfg.SparseCheckout != "" {
 		fetchOptions.Filter = "blob:none"
 	}
-	var refSpecAllHistory, refSpec []string
-	if cfg.doLocalMerge() {
-		fetchOptions.LocalRepository = cfg.PullRequest.LocalWorkspace
-		refSpecAllHistory = append(refSpecAllHistory, cfg.Commit)
-		refSpec = append(refSpec, cfg.Commit)
-	} else {
-		refSpecAllHistory = getRefSpecForAllHistory(cfg.Ref, cfg.Commit)
-		refSpec = getRefSpec(cfg.Ref, cfg.Commit, cfg.Provider)
+	if mergeLoc != "" {
+		fetchOptions.LocalRepository = mergeLoc
 	}
+
 	if cfg.FetchDepth <= 0 {
-		if err := cli.Fetch(refSpecAllHistory, fetchOptions); err != nil {
+		if err := cli.Fetch(getRefSpecForAllHistory(cfg.Ref, cfg.Commit), fetchOptions); err != nil {
 			return err
 		}
 
@@ -531,13 +430,13 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		if refPresent, err := testRef(cli, cfg.Ref, cfg.Commit); err != nil {
 			return err
 		} else if !refPresent {
-			if err := cli.Fetch(refSpec, fetchOptions); err != nil {
+			if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit, cfg.Provider), fetchOptions); err != nil {
 				return err
 			}
 		}
 	} else {
 		fetchOptions.FetchDepth = cfg.FetchDepth
-		if err := cli.Fetch(refSpec, fetchOptions); err != nil {
+		if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit, cfg.Provider), fetchOptions); err != nil {
 			return err
 		}
 	}
@@ -582,13 +481,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 
 	// Checkout
 	core.StartGroup("Checking out the Ref")
-	var checkoutRef string
-	if cfg.doLocalMerge() {
-		checkoutRef = cfg.Commit
-	} else {
-		checkoutRef = checkoutInfo.ref
-	}
-	if err := cli.Checkout(checkoutRef, checkoutInfo.startPoint); err != nil {
+	if err := cli.Checkout(checkoutInfo.ref, checkoutInfo.startPoint); err != nil {
 		return err
 	}
 	core.EndGroup("Ref checked out")
@@ -717,21 +610,47 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	return nil
 }
 
-func (cfg *Config) doLocalMerge() bool {
-	if cfg.PullRequest == nil {
-		return false
-	}
-	eventContext := findEventContext()
-	if !cfg.isWorkflowRepository(eventContext) {
-		return false
+func (cfg *Config) doLocalMerge(cli *git.GitCLI, repositoryURL string, repoPath string, temp string) (fetchLoc string, err error) {
+	workingDir := filepath.Join(temp, "merge")
+	if err := os.MkdirAll(workingDir, os.ModePerm); err != nil {
+		return "", fmt.Errorf("failed to create working directory for local merge: %w", err)
 	}
 
-	ref, ok := getStringFromMap(eventContext, "sha")
-	if !ok {
-		return false
+	if err := cli.Init(workingDir); err != nil {
+		return "", err
+	}
+	cli.SetCwd(workingDir)
+	defer cli.SetCwd(repoPath)
+
+	cleaner, err := auth.ConfigureToken(
+		cli, "", false, cfg.serverURL(), auth.TokenAuth{
+			Provider: cfg.Provider,
+			ScmToken: cfg.Token,
+			ApiToken: cfg.CloudBeesApiToken,
+			ApiURL:   cfg.CloudBeesApiURL,
+		})
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if !cfg.PersistCredentials {
+			cleaner()
+		}
+	}()
+
+	mergeCommit, err := cli.Merge(repositoryURL, cfg.Commit, workingDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to call the merge binary: %w", err)
+	}
+	if mergeCommit != "" {
+		cfg.Commit = mergeCommit
+		cfg.Ref = ""
+
+		fmt.Printf("Pull request merged with commit: %s\n", mergeCommit)
+		return workingDir, nil
 	}
 
-	return cfg.Commit == ref
+	return "", nil
 }
 
 func (cfg *Config) checkCommitInfo(commitInfo string) error {
