@@ -630,9 +630,7 @@ func (cfg *Config) doLocalMerge(cli *git.GitCLI, repositoryURL string, credsHelp
 		cfg.Ref = ""
 
 		fmt.Printf("Pull request merged with commit: %s\n", mergeCommit)
-		core.Debug("merge_commit = %s", mergeCommit)
 		if fetchLoc, ok := getStringFromMap(mergeData, "fetched_loc"); ok {
-			core.Debug("fetched_loc = %s", fetchLoc)
 			return fetchLoc, nil
 		} else {
 			return "", fmt.Errorf("missing fetch location in merge output")
