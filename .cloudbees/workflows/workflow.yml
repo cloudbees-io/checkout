@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Git checkout
         uses: https://github.com/cloudbees-io/checkout@v1
+        with:
+          fetch-depth: 0
 
       - name: Run unit tests and verify coding rules
         uses: docker://golang:1.22.1
