@@ -364,7 +364,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}()
 	}
 
-	cleaner, err := auth.ConfigureToken(
+	cleaner, helperCommand, err := auth.ConfigureToken(
 		cli, "", false, cfg.serverURL(), auth.TokenAuth{
 			Provider: cfg.Provider,
 			ScmToken: cfg.Token,
@@ -405,7 +405,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}
 	}
 
-	mergeLoc, err := cfg.doLocalMerge(cli, repositoryURL, repositoryPath, temp)
+	mergeLoc, err := cfg.doLocalMerge(cli, repositoryURL, helperCommand)
 	if err != nil {
 		return err
 	}
@@ -492,7 +492,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		// Temporarily override global config
 		core.StartGroup("Setting up auth for fetching submodules")
 
-		cleaner, err := auth.ConfigureToken(cli, "", true, cfg.serverURL(), auth.TokenAuth{
+		cleaner, _, err := auth.ConfigureToken(cli, "", true, cfg.serverURL(), auth.TokenAuth{
 			Provider: cfg.Provider,
 			ScmToken: cfg.Token,
 			ApiToken: cfg.CloudBeesApiToken,
@@ -610,44 +610,33 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	return nil
 }
 
-func (cfg *Config) doLocalMerge(cli *git.GitCLI, repositoryURL string, repoPath string, temp string) (fetchLoc string, err error) {
-	workingDir := filepath.Join(temp, "merge")
-	if err := os.MkdirAll(workingDir, os.ModePerm); err != nil {
-		return "", fmt.Errorf("failed to create working directory for local merge: %w", err)
-	}
-
-	if err := cli.Init(workingDir); err != nil {
-		return "", err
-	}
-	cli.SetCwd(workingDir)
-	defer cli.SetCwd(repoPath)
-
-	cleaner, err := auth.ConfigureToken(
-		cli, "", false, cfg.serverURL(), auth.TokenAuth{
-			Provider: cfg.Provider,
-			ScmToken: cfg.Token,
-			ApiToken: cfg.CloudBeesApiToken,
-			ApiURL:   cfg.CloudBeesApiURL,
-		})
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if !cfg.PersistCredentials {
-			cleaner()
-		}
-	}()
-
-	mergeCommit, err := cli.Merge(repositoryURL, cfg.Commit, workingDir)
+func (cfg *Config) doLocalMerge(cli *git.GitCLI, repositoryURL string, credsHelperCmd string) (fetchLoc string, err error) {
+	cmdOut, err := cli.Merge(repositoryURL, cfg.Commit, cfg.FetchDepth, credsHelperCmd)
 	if err != nil {
 		return "", fmt.Errorf("failed to call the merge binary: %w", err)
 	}
-	if mergeCommit != "" {
+
+	if cmdOut == "" {
+		return "", nil
+	}
+
+	var mergeData map[string]interface{}
+	if err := json.Unmarshal([]byte(cmdOut), &mergeData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal merge output: %w", err)
+	}
+
+	if mergeCommit, ok := getStringFromMap(mergeData, "merge_commit"); ok {
 		cfg.Commit = mergeCommit
 		cfg.Ref = ""
 
 		fmt.Printf("Pull request merged with commit: %s\n", mergeCommit)
-		return workingDir, nil
+		core.Debug("merge_commit = %s", mergeCommit)
+		if fetchLoc, ok := getStringFromMap(mergeData, "fetched_loc"); ok {
+			core.Debug("fetched_loc = %s", fetchLoc)
+			return fetchLoc, nil
+		} else {
+			return "", fmt.Errorf("missing fetch location in merge output")
+		}
 	}
 
 	return "", nil

@@ -454,8 +454,8 @@ func (g *GitCLI) RemoteAdd(name string, url string) error {
 	return g.run("remote", "add", name, url)
 }
 
-func (g *GitCLI) Merge(repositoryURL, commitSha, workingDir string) (string, error) {
-	mergeBinary, err := exec.LookPath("merge")
+func (g *GitCLI) Merge(repositoryURL, commitSha string, fetchDepth int, credsHelperCmd string) (string, error) {
+	mergeBinary, err := exec.LookPath("cloudbees-git-pr-merge-backfill")
 	if err != nil && !errors.Is(err, exec.ErrDot) {
 		return "", err
 	} else if errors.Is(err, exec.ErrDot) {
@@ -466,7 +466,8 @@ func (g *GitCLI) Merge(repositoryURL, commitSha, workingDir string) (string, err
 
 	stdout, err := g.runMerge(mergeBinary, "merge", "--clone-url", repositoryURL,
 		"--commit-sha", commitSha,
-		"--working-dir", workingDir)
+		"--creds-helper-cmd", credsHelperCmd,
+		"--fetch-depth", strconv.Itoa(fetchDepth))
 
 	return stdout, err
 }
