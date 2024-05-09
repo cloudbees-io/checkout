@@ -611,7 +611,12 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 }
 
 func (cfg *Config) doLocalMerge(cli *git.GitCLI, repositoryURL string, credsHelperCmd string) (fetchLoc string, err error) {
-	cmdOut, err := cli.Merge(repositoryURL, cfg.Commit, cfg.FetchDepth, credsHelperCmd)
+	commitRef := cfg.Commit
+	if cfg.Commit == "" {
+		commitRef = cfg.Ref
+	}
+
+	cmdOut, err := cli.Merge(repositoryURL, commitRef, cfg.FetchDepth, credsHelperCmd)
 	if err != nil {
 		return "", fmt.Errorf("failed to call the merge binary: %w", err)
 	}
