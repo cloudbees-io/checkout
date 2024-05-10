@@ -301,6 +301,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}
 	}
 
+	core.Debug("Repository Path = %s", repositoryPath)
 	cli.SetCwd(repositoryPath)
 
 	// Prepare existing directory, otherwise recreate
@@ -363,7 +364,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}()
 	}
 
-	cleaner, err := auth.ConfigureToken(
+	cleaner, helperCommand, err := auth.ConfigureToken(
 		cli, "", false, cfg.serverURL(), auth.TokenAuth{
 			Provider: cfg.Provider,
 			ScmToken: cfg.Token,
@@ -404,12 +405,21 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}
 	}
 
+	mergeLoc, err := cfg.doLocalMerge(cli, repositoryURL, helperCommand)
+	if err != nil {
+		return err
+	}
+
 	// Fetch the Repository
 	core.StartGroup("Fetching the Repository")
 	var fetchOptions git.FetchOptions
 	if cfg.SparseCheckout != "" {
 		fetchOptions.Filter = "blob:none"
 	}
+	if mergeLoc != "" {
+		fetchOptions.LocalRepository = mergeLoc
+	}
+
 	if cfg.FetchDepth <= 0 {
 		if err := cli.Fetch(getRefSpecForAllHistory(cfg.Ref, cfg.Commit), fetchOptions); err != nil {
 			return err
@@ -482,7 +492,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		// Temporarily override global config
 		core.StartGroup("Setting up auth for fetching submodules")
 
-		cleaner, err := auth.ConfigureToken(cli, "", true, cfg.serverURL(), auth.TokenAuth{
+		cleaner, _, err := auth.ConfigureToken(cli, "", true, cfg.serverURL(), auth.TokenAuth{
 			Provider: cfg.Provider,
 			ScmToken: cfg.Token,
 			ApiToken: cfg.CloudBeesApiToken,
@@ -598,6 +608,41 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	}
 
 	return nil
+}
+
+func (cfg *Config) doLocalMerge(cli *git.GitCLI, repositoryURL string, credsHelperCmd string) (fetchLoc string, err error) {
+	commitRef := cfg.Commit
+	if cfg.Commit == "" {
+		commitRef = cfg.Ref
+	}
+
+	cmdOut, err := cli.Merge(repositoryURL, commitRef, cfg.FetchDepth, credsHelperCmd)
+	if err != nil {
+		return "", fmt.Errorf("failed to call the merge binary: %w", err)
+	}
+
+	if cmdOut == "" {
+		return "", nil
+	}
+
+	var mergeData map[string]interface{}
+	if err := json.Unmarshal([]byte(cmdOut), &mergeData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal merge output: %w", err)
+	}
+
+	if mergeCommit, ok := getStringFromMap(mergeData, "merge_commit"); ok {
+		cfg.Commit = mergeCommit
+		cfg.Ref = ""
+
+		fmt.Printf("Pull request merged with commit: %s\n", mergeCommit)
+		if fetchLoc, ok := getStringFromMap(mergeData, "fetched_loc"); ok {
+			return fetchLoc, nil
+		} else {
+			return "", fmt.Errorf("missing fetch location in merge output")
+		}
+	}
+
+	return "", nil
 }
 
 func (cfg *Config) checkCommitInfo(commitInfo string) error {
@@ -747,6 +792,8 @@ func (cfg *Config) isWorkflowRepository(eventContext map[string]interface{}) boo
 	ctxRepository, haveR := getStringFromMap(eventContext, "repository")
 	core.Debug("ctx.provider = %s", ctxProvider)
 	core.Debug("ctx.repository = %s", ctxRepository)
+	core.Debug("cfg.provider = %s", cfg.Provider)
+	core.Debug("cfg.repository = %s", cfg.Repository)
 
 	return haveP && cfg.Provider == ctxProvider && haveR && cfg.Repository == ctxRepository
 }

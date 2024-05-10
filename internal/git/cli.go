@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -34,6 +35,7 @@ func NewGitCLI(ctx context.Context) (*GitCLI, error) {
 			return nil, err
 		}
 	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
@@ -80,6 +82,34 @@ func (g *GitCLI) GlobalConfigPath() (string, error) {
 	}
 
 	return "", fmt.Errorf("unable to locate config file '%s'", filepath.Join("$HOME", ".gitconfig"))
+}
+
+func (g *GitCLI) runMerge(mergeBin string, args ...string) (string, error) { // this function is implemented similar to the 'run' function below
+	c := exec.CommandContext(g.ctx, mergeBin, args...)
+	c.Dir = g.cwd
+	c.Env = envMapToEntries(g.env)
+
+	if g.log {
+		fmt.Println(c.String())
+	}
+
+	if !g.quiet {
+		c.Stderr = os.Stderr
+	}
+
+	var stdout = bytes.Buffer{}
+	c.Stdout = &stdout
+	err := c.Run()
+	if e := (&exec.ExitError{}); err != nil && errors.As(err, &e) {
+		core.Debug("merge command exited with status %d", e.ExitCode())
+		return stdout.String(), err
+	} else if err != nil {
+		core.Debug("merge command exited with status %d", 126)
+	} else {
+		core.Debug("0")
+	}
+
+	return stdout.String(), err
 }
 
 func (g *GitCLI) run(args ...string) error {
@@ -424,9 +454,28 @@ func (g *GitCLI) RemoteAdd(name string, url string) error {
 	return g.run("remote", "add", name, url)
 }
 
+func (g *GitCLI) Merge(repositoryURL, commitSha string, fetchDepth int, credsHelperCmd string) (string, error) {
+	mergeBinary, err := exec.LookPath("cloudbees-git-pr-merge-backfill")
+	if err != nil && !errors.Is(err, exec.ErrDot) {
+		return "", err
+	} else if errors.Is(err, exec.ErrDot) {
+		if mergeBinary, err = filepath.Abs(mergeBinary); err != nil {
+			return "", err
+		}
+	}
+
+	stdout, err := g.runMerge(mergeBinary, "merge", "--clone-url", repositoryURL,
+		"--commit-sha", commitSha,
+		"--creds-helper-cmd", credsHelperCmd,
+		"--fetch-depth", strconv.Itoa(fetchDepth))
+
+	return stdout, err
+}
+
 type FetchOptions struct {
-	Filter     string
-	FetchDepth int
+	Filter          string
+	FetchDepth      int
+	LocalRepository string
 }
 
 func (g *GitCLI) Fetch(refSpec []string, options FetchOptions) error {
@@ -462,7 +511,11 @@ func (g *GitCLI) Fetch(refSpec []string, options FetchOptions) error {
 		}
 	}
 
-	args = append(args, "origin")
+	if options.LocalRepository != "" {
+		args = append(args, options.LocalRepository)
+	} else {
+		args = append(args, "origin")
+	}
 	args = append(args, refSpec...)
 
 	return g.run(args...)

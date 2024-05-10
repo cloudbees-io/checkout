@@ -74,9 +74,9 @@ func (a *TokenAuth) options() map[string][]string {
 	return options
 }
 
-func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serverURL string, token TokenAuth) (func() error, error) {
+func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serverURL string, token TokenAuth) (func() error, string, error) {
 	if configPath != "" && globalConfig {
-		return noOpClean, fmt.Errorf("unexpected ConfigureToken parameter combination")
+		return noOpClean, "", fmt.Errorf("unexpected ConfigureToken parameter combination")
 	}
 
 	if configPath == "" && !globalConfig {
@@ -86,13 +86,13 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 	var err error
 	if globalConfig {
 		if configPath, err = cli.GlobalConfigPath(); err != nil {
-			return noOpClean, err
+			return noOpClean, "", err
 		}
 	}
 
 	helperCommand, cleaner, err := helper.InstallHelperFor(serverURL, token.options())
 	if err != nil {
-		return cleaner, err
+		return cleaner, "", err
 	}
 
 	oldHelper, _ := cli.GetConfig(globalConfig, "credential.helper")
@@ -125,13 +125,13 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 	}
 
 	if err := cli.SetConfigStr(globalConfig, "credential.helper", helperCommand); err != nil {
-		return fullCleaner, err
+		return fullCleaner, "", err
 	}
 	if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", true); err != nil {
-		return fullCleaner, err
+		return fullCleaner, "", err
 	}
 
-	return fullCleaner, nil
+	return fullCleaner, helperCommand, nil
 }
 
 func ConfigureSubmoduleTokenAuth(cli *git.GitCLI, recursive bool, serverURL string, token string) error {
