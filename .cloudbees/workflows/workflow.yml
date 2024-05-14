@@ -43,7 +43,7 @@ jobs:
       - name: Build image
         uses: https://github.com/cloudbees-io/kaniko@v1
         with:
-          destination: 020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:${{ cloudbees.scm.sha }}020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:latest
+          destination: 020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:${{ cloudbees.scm.sha }},020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:latest
           labels: maintainer=sdp-pod-3,email=engineering@cloudbees.io
 
   test:
