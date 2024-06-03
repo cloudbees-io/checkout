@@ -10,7 +10,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags '-w -extldflags "-static"' -o /usr/local/bin/checkout main.go
 
-FROM alpine:3.20.0
+FROM alpine:3.20
 
 RUN apk fix && \
     apk --no-cache --update add git git-lfs gpg less openssh patch && \
