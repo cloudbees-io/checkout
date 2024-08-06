@@ -115,8 +115,7 @@ func (cfg *Config) validate() error {
 				cfg.Commit = s
 			}
 
-			if cfg.Provider == GitHubProvider && cfg.Commit != "" && cfg.Ref != "" && !strings.HasPrefix(cfg.Ref, "refs/") {
-				// For GITHUB only
+			if cfg.Commit != "" && cfg.Ref != "" && !strings.HasPrefix(cfg.Ref, "refs/") {
 				// Some events have an unqualifed ref. For example when a PR is merged (pull_request closed event),
 				// the ref is unqualifed like "main" instead of "refs/heads/main".
 				cfg.Ref = "refs/heads/" + cfg.Ref
