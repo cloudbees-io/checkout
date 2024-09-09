@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -57,7 +56,10 @@ var shaRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
 
 func (cfg *Config) validate() error {
 	// Load event context
-	eventContext := findEventContext()
+	eventContext, err := findEventContext()
+	if err != nil {
+		return fmt.Errorf("loading event context: %w", err)
+	}
 
 	// CloudBees Workspace
 	workspacePath, found := os.LookupEnv("CLOUDBEES_WORKSPACE")
@@ -108,7 +110,7 @@ func (cfg *Config) validate() error {
 	// source branch, source version
 	if cfg.Ref == "" {
 		if isWorkflowRepository {
-			if r, found := getStringFromMap(eventContext, "branch"); found {
+			if r, found := getStringFromMap(eventContext, "ref"); found {
 				cfg.Ref = r
 			}
 			if s, found := getStringFromMap(eventContext, "sha"); found {
@@ -200,14 +202,11 @@ func (cfg *Config) validate() error {
 	return nil
 }
 
-func findEventContext() map[string]interface{} {
+func findEventContext() (map[string]interface{}, error) {
 	if eventPath, found := os.LookupEnv("CLOUDBEES_EVENT_PATH"); found {
-		return safeLoadEventContext(eventPath)
-	} else if homePath, found := os.LookupEnv("CLOUDBEES_HOME"); found {
-		// TODO remove when CLOUDBEES_EVENT_PATH is exposed in the environment
-		return safeLoadEventContext(filepath.Join(homePath, "event.json"))
+		return loadEventContext(eventPath)
 	}
-	return make(map[string]interface{})
+	return make(map[string]interface{}), nil
 }
 
 func (cfg *Config) Run(ctx context.Context) (retErr error) {
@@ -649,7 +648,11 @@ func (cfg *Config) checkCommitInfo(commitInfo string) error {
 		// this is a GitHub specific test
 		return nil
 	}
-	eventContext := findEventContext()
+	eventContext, err := findEventContext()
+	if err != nil {
+		return fmt.Errorf("checking commit information: %w", err)
+	}
+
 	if t, ok := getStringFromMap(eventContext, "type"); !ok || t != "pull_request" {
 		// check only applies to a pull request
 	}
@@ -722,16 +725,6 @@ func (cfg *Config) checkCommitInfo(commitInfo string) error {
 	return nil
 }
 
-// safeLoadEventContext attempts to load the event context from the JSON file at the supplied path always returning
-// a (possibly empty) map.
-func safeLoadEventContext(path string) map[string]interface{} {
-	c, err := loadEventContext(path)
-	if err != nil {
-		return make(map[string]interface{})
-	}
-	return c
-}
-
 // loadEventContext attempts to load the event context from the JSON file at the supplied path.
 func loadEventContext(path string) (map[string]interface{}, error) {
 	var bytes []byte
@@ -751,39 +744,6 @@ func loadEventContext(path string) (map[string]interface{}, error) {
 	return event, nil
 }
 
-// extractRefAndShaFromCloudBeesEventJson performs a best effort extraction of the SHA from event.json at the specified Path
-// if anything goes wrong, we assume the sha is empty as some events may not have a sha or the event may correspond
-// to a different Repository than the one we are checking out, in which case we return empty also
-func (cfg *Config) extractRefAndShaFromCloudBeesEventJson(eventPath string) (string, string) {
-	var bytes []byte
-	var err error
-
-	log.Printf("Reading event.json from '%s'", eventPath)
-	if bytes, err = os.ReadFile(eventPath); err != nil {
-		log.Printf("Could not read event.json from '%s': %v", eventPath, err)
-		// this is a best effort extract, if we cannot extract it then we cannot provide defaults
-		return "", ""
-	}
-	log.Printf("Event JSON: '%s'", string(bytes))
-	var event map[string]interface{}
-	if err := json.Unmarshal(bytes, &event); err != nil {
-		log.Printf("Could not parse event.json from '%s': %v", eventPath, err)
-		// this is a best effort extract, if we cannot extract it then we cannot provide defaults
-		return "", ""
-	}
-	if p, found := getStringFromMap(event, "provider"); !found || p != cfg.Provider {
-		// if the event doesn't tell us the Provider or tells us a different Provider then the event cannot tell us
-		// anything about the Repository we are checking out so do not use the event's values for defaulting
-		return "", ""
-	}
-	if r, found := getStringFromMap(event, "repository"); !found || r != cfg.Repository {
-		// if the event doesn't tell us the Repository or tells us a different Repository then the event cannot tell us
-		// anything about the Repository we are checking out so do not use the event's values for defaulting
-		return "", ""
-	}
-	return extractRefFromCloudBeesEventJson(event), extractShaFromCloudBeesEventJson(event)
-}
-
 func (cfg *Config) isWorkflowRepository(eventContext map[string]interface{}) bool {
 	ctxProvider, haveP := getStringFromMap(eventContext, "provider")
 	ctxProvider = strings.ToLower(ctxProvider)
@@ -795,22 +755,6 @@ func (cfg *Config) isWorkflowRepository(eventContext map[string]interface{}) boo
 	core.Debug("cfg.repository = %s", cfg.Repository)
 
 	return haveP && cfg.Provider == ctxProvider && haveR && cfg.Repository == ctxRepository
-}
-
-// extractShaFromCloudBeesEventJson performs a best effort extraction of the SHA from event.json at the specified Path
-// if anything goes wrong, we assume the sha is empty as some events may not have a sha or the event may correspond
-// to a different Repository than the one we are checking out, in which case we return empty also
-func extractShaFromCloudBeesEventJson(event map[string]interface{}) string {
-	s, _ := getStringFromMap(event, "sha")
-	return s
-}
-
-// extractShaFromCloudBeesEventJson performs a best effort extraction of the SHA from event.json at the specified Path
-// if anything goes wrong, we assume the sha is empty as some events may not have a sha or the event may correspond
-// to a different Repository than the one we are checking out, in which case we return empty also
-func extractRefFromCloudBeesEventJson(event map[string]interface{}) string {
-	r, _ := getStringFromMap(event, "Ref")
-	return r
 }
 
 func getStringFromMap(m map[string]interface{}, key string) (string, bool) {
