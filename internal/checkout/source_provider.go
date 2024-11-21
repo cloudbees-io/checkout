@@ -1,10 +1,12 @@
 package checkout
 
 import (
+	"archive/tar"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/exec"
@@ -43,6 +45,7 @@ type Config struct {
 	GitlabServerURL              string
 	Commit                       string
 	githubWorkflowOrganizationId string
+	CreateTarfile                bool
 }
 
 const (
@@ -586,6 +589,17 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		return err
 	}
 
+	// Tar the checked-out repository if flag enabled
+	if cfg.CreateTarfile {
+		core.StartGroup("Creating Tarfile of the repository")
+		tarFilePath := filepath.Join(workspacePath, "repository.tar.gz")
+		if err := generateTarfile(repositoryPath, tarFilePath); err != nil {
+			return fmt.Errorf("failed to create tarball: %w", err)
+		}
+		core.Debug("Repository tarball created at %s", tarFilePath)
+		core.EndGroup("Tarfile created")
+	}
+
 	// remove auth - already handled by defer functions
 
 	if os.Getenv("DEBUG_SHELL") != "" {
@@ -1089,4 +1103,57 @@ func prepareExistingDirectory(cli *git.GitCLI, repositoryPath string, repository
 		return nil
 	}
 	return nil
+}
+
+func generateTarfile(srcDir, filename string) error {
+
+	if err := core.DirExists(srcDir, true); err != nil {
+		return err
+	}
+
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	tw := tar.NewWriter(file)
+	defer tw.Close()
+
+	err = filepath.Walk(srcDir, func(file string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		header, err := tar.FileInfoHeader(fi, fi.Name())
+		if err != nil {
+			return err
+		}
+
+		// Create a relative path for the tarball
+		header.Name, err = filepath.Rel(srcDir, file)
+		if err != nil {
+			return err
+		}
+
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		if fi.Mode().IsRegular() {
+			f, err := os.Open(file)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			if _, err := io.Copy(tw, f); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return err
 }
