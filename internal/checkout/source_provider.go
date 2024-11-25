@@ -590,13 +590,14 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	}
 
 	// Tar the checked-out repository if flag enabled
+	fmt.Printf("Creating tarfile condition is %t and path is %s\n", cfg.CreateTarfile, workspacePath)
 	if cfg.CreateTarfile {
 		core.StartGroup("Creating Tarfile of the repository")
 		tarFilePath := filepath.Join(workspacePath, "repository.tar.gz")
 		if err := generateTarfile(repositoryPath, tarFilePath); err != nil {
 			return fmt.Errorf("failed to create tarball: %w", err)
 		}
-		core.Debug("Repository tarball created at %s", tarFilePath)
+		fmt.Printf("Repository tarball created at %s", tarFilePath)
 		core.EndGroup("Tarfile created")
 	}
 
