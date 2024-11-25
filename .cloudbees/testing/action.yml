@@ -84,6 +84,10 @@ inputs:
   gitlab-server-url:
     description: The base URL for the GitLab instance that you are trying to clone from, will use environment defaults (i.e. the GITLAB_SERVER_URL environment variable) to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://gitlab.com or https://my-gl-server.example.com
     required: false
+  create-tarfile:
+    description: 'Whether to create a tarfile of the repository'
+    default: "false"
+    required: false
 runs:
   using: composite
   steps:
@@ -113,3 +117,4 @@ runs:
           "--github-server-url=${{ inputs.github-server-url }}" \
           "--bitbucket-server-url=${{ inputs.bitbucket-server-url }}" \
           "--gitlab-server-url=${{ inputs.gitlab-server-url }}" \
+          "--create-tarfile=${{ inputs.create-tarfile }}"
