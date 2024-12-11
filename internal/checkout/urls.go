@@ -3,16 +3,20 @@ package checkout
 import (
 	"fmt"
 	"net/url"
+
+	"github.com/cloudbees-io/checkout/internal/auth"
 )
 
 func (cfg *Config) serverURL() string {
 	p := cfg.Provider
 	switch p {
-	case GitHubProvider:
+	case auth.GitHubProvider:
 		return cfg.GithubServerURL
-	case BitbucketProvider:
+	case auth.BitbucketProvider:
 		return cfg.BitbucketServerURL
-	case GitLabProvider:
+	case auth.BitbucketDatacenterProvider:
+		return cfg.BitbucketServerURL
+	case auth.GitLabProvider:
 		return cfg.GitlabServerURL
 	default:
 		return ""
@@ -23,16 +27,19 @@ func (cfg *Config) serverURL() string {
 func (cfg *Config) fetchURL(ssh bool) (string, error) {
 	p := cfg.Provider
 	switch p {
-	case GitHubProvider:
+	case auth.GitHubProvider:
 		return cfg.githubCloneUrl(ssh)
-	case BitbucketProvider:
+	case auth.BitbucketProvider:
 		return cfg.bitbucketCloneUrl(ssh)
-	case GitLabProvider:
+	case auth.GitLabProvider:
 		return cfg.gitlabCloneUrl(ssh)
-	case CustomProvider:
+	case auth.CustomProvider:
 		return cfg.Repository, nil
 	default:
-		return "", fmt.Errorf("unknown/unsupported SCM Provider: %s", p)
+		if v, ok := getStringFromMap(cfg.eventContext, "repositoryUrl"); ok {
+			return v, nil
+		}
+		return "", fmt.Errorf("clone url not found for provider: %s", p)
 	}
 }
 

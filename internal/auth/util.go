@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/cloudbees-io/checkout/internal/helper"
 	"net/url"
 	"os"
 	"os/exec"
@@ -18,6 +17,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/cloudbees-io/checkout/internal/helper"
+
 	"github.com/cloudbees-io/checkout/internal/git"
 	"gopkg.in/alessio/shellescape.v1"
 )
@@ -27,6 +28,12 @@ const (
 	tokenConfigValue            = "Authorization: Basic %s"
 	tokenConfigKey              = "http.%s/.extraheader"
 	authTemplate                = "x-access-token:%s"
+
+	GitHubProvider              = "github"
+	GitLabProvider              = "gitlab"
+	BitbucketProvider           = "bitbucket"
+	CustomProvider              = "custom"
+	BitbucketDatacenterProvider = "bitbucket_datacenter"
 )
 
 //go:embed ssh_known_hosts.tmpl
@@ -45,17 +52,17 @@ type TokenAuth struct {
 
 func (a *TokenAuth) providerUsername() string {
 	switch a.Provider {
-	case "github":
+	case GitHubProvider:
 		// GHA checkout action uses this username
 		return "x-access-token"
-	case "gitlab":
+	case GitLabProvider:
 		// https://docs.gitlab.com/ee/user/project/settings/project_access_tokens.html
 		// Any non-blank value as a username
 		return "x-access-token"
-	case "bitbucket":
+	case BitbucketProvider:
 		// this is what they suggest when you go through https://bitbucket.org/{org}/{repo}/admin/access-tokens
 		return "x-token-auth"
-	case "custom":
+	case CustomProvider:
 		return "x-access-token"
 	default:
 		return "git"

@@ -43,20 +43,15 @@ type Config struct {
 	GitlabServerURL              string
 	Commit                       string
 	githubWorkflowOrganizationId string
+	eventContext                 map[string]interface{}
+	providerURL                  string
 }
-
-const (
-	GitHubProvider    = "github"
-	GitLabProvider    = "gitlab"
-	BitbucketProvider = "bitbucket"
-	CustomProvider    = "custom"
-)
 
 var shaRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
 
 func (cfg *Config) validate() error {
 	// Load event context
-	eventContext, err := findEventContext()
+	err := cfg.findEventContext()
 	if err != nil {
 		return fmt.Errorf("loading event context: %w", err)
 	}
@@ -75,17 +70,19 @@ func (cfg *Config) validate() error {
 
 	// Provider
 	if cfg.Provider == "" {
-		cfg.Provider, _ = getStringFromMap(eventContext, "provider")
+		cfg.Provider, _ = getStringFromMap(cfg.eventContext, "provider")
 	}
 	cfg.Provider = strings.TrimSpace(strings.ToLower(cfg.Provider))
 	if cfg.Provider == "" {
 		return fmt.Errorf("input required and not supplied: provider")
 	}
+	cfg.providerURL, _ = getStringFromMap(cfg.eventContext, "providerURL")
 	core.Debug("provider = %s", cfg.Provider)
 	core.Debug("repository = %s", cfg.Repository)
+	core.Debug("providerURL = %s", cfg.providerURL)
 
 	// Repository
-	if cfg.Provider != CustomProvider {
+	if cfg.Provider != auth.CustomProvider {
 		splitRepository := strings.Split(cfg.Repository, "/")
 		if len(splitRepository) != 2 || splitRepository[0] == "" || splitRepository[1] == "" {
 			return fmt.Errorf("invalid repository '%s', expected format {owner}/{repo}", cfg.Repository)
@@ -104,16 +101,16 @@ func (cfg *Config) validate() error {
 	}
 
 	// workflow repository ?
-	isWorkflowRepository := cfg.isWorkflowRepository(eventContext)
+	isWorkflowRepository := cfg.isWorkflowRepository(cfg.eventContext)
 	core.Debug("isWorkflowRepository = %v", isWorkflowRepository)
 
 	// source branch, source version
 	if cfg.Ref == "" {
 		if isWorkflowRepository {
-			if r, found := getStringFromMap(eventContext, "ref"); found {
+			if r, found := getStringFromMap(cfg.eventContext, "ref"); found {
 				cfg.Ref = r
 			}
-			if s, found := getStringFromMap(eventContext, "sha"); found {
+			if s, found := getStringFromMap(cfg.eventContext, "sha"); found {
 				cfg.Commit = s
 			}
 
@@ -164,8 +161,8 @@ func (cfg *Config) validate() error {
 	}
 
 	// Workflow organization ID
-	if cfg.Provider == GitHubProvider {
-		raw, _ := getMapFromMap(eventContext, "raw")
+	if cfg.Provider == auth.GitHubProvider {
+		raw, _ := getMapFromMap(cfg.eventContext, "raw")
 		repo, _ := getMapFromMap(raw, "repository")
 		owner, _ := getMapFromMap(repo, "owner")
 		cfg.githubWorkflowOrganizationId, _ = getStringFromMap(owner, "id")
@@ -173,7 +170,7 @@ func (cfg *Config) validate() error {
 
 	// Determine the provider URL that the repository is being hosted from
 	switch cfg.Provider {
-	case GitHubProvider:
+	case auth.GitHubProvider:
 		if cfg.GithubServerURL == "" {
 			cfg.GithubServerURL = os.Getenv("GITHUB_SERVER_URL")
 		}
@@ -181,7 +178,7 @@ func (cfg *Config) validate() error {
 			cfg.GithubServerURL = "https://github.com"
 		}
 		core.Debug("GitHub Host URL = %s", cfg.GithubServerURL)
-	case GitLabProvider:
+	case auth.GitLabProvider:
 		if cfg.GitlabServerURL == "" {
 			cfg.GitlabServerURL = os.Getenv("GITLAB_SERVER_URL")
 		}
@@ -189,24 +186,41 @@ func (cfg *Config) validate() error {
 			cfg.GitlabServerURL = "https://gitlab.com"
 		}
 		core.Debug("GitLab Host URL = %s", cfg.GitlabServerURL)
-	case BitbucketProvider:
+	case auth.BitbucketProvider:
 		if cfg.BitbucketServerURL == "" {
 			cfg.BitbucketServerURL = os.Getenv("BITBUCKET_SERVER_URL")
 		}
 		if cfg.BitbucketServerURL == "" {
 			cfg.BitbucketServerURL = "https://bitbucket.org"
 		}
-		core.Debug("Bitbucket Host URL = %s", cfg.GitlabServerURL)
+		core.Debug("Bitbucket Host URL = %s", cfg.BitbucketServerURL)
+	case auth.BitbucketDatacenterProvider:
+		if cfg.BitbucketServerURL == "" {
+			cfg.BitbucketServerURL = os.Getenv("BITBUCKET_SERVER_URL")
+		}
+		if cfg.BitbucketServerURL == "" {
+			if cfg.providerURL != "" {
+				cfg.BitbucketServerURL = cfg.providerURL
+			} else {
+				return fmt.Errorf("missing Bitbucket Server URL")
+			}
+		}
+		core.Debug("Bitbucket Host URL = %s", cfg.BitbucketServerURL)
 	}
 
 	return nil
 }
 
-func findEventContext() (map[string]interface{}, error) {
+func (cfg *Config) findEventContext() error {
 	if eventPath, found := os.LookupEnv("CLOUDBEES_EVENT_PATH"); found {
-		return loadEventContext(eventPath)
+		evtCtx, err := loadEventContext(eventPath)
+		if err != nil {
+			return fmt.Errorf("loading event context from file: %w", err)
+		}
+		cfg.eventContext = evtCtx
+		return nil
 	}
-	return make(map[string]interface{}), nil
+	return fmt.Errorf("missing event context")
 }
 
 func (cfg *Config) Run(ctx context.Context) (retErr error) {
@@ -501,7 +515,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}
 
 		var insteadOfKey string
-		if cfg.Provider != CustomProvider {
+		if cfg.Provider != auth.CustomProvider {
 			u, err := url.Parse(cfg.serverURL())
 			if err != nil {
 				return err
@@ -519,7 +533,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 				fmt.Sprintf("git@%s:", u.Host),
 			)
 
-			if cfg.Provider == GitHubProvider && cfg.githubWorkflowOrganizationId != "" {
+			if cfg.Provider == auth.GitHubProvider && cfg.githubWorkflowOrganizationId != "" {
 				insteadOfValues = append(
 					insteadOfValues,
 					fmt.Sprintf("org-%s@%s:", cfg.githubWorkflowOrganizationId, u.Host),
@@ -644,19 +658,15 @@ func (cfg *Config) doLocalMerge(cli *git.GitCLI, repositoryURL string, credsHelp
 }
 
 func (cfg *Config) checkCommitInfo(commitInfo string) error {
-	if cfg.Provider != GitHubProvider {
+	if cfg.Provider != auth.GitHubProvider {
 		// this is a GitHub specific test
 		return nil
 	}
-	eventContext, err := findEventContext()
-	if err != nil {
-		return fmt.Errorf("checking commit information: %w", err)
-	}
 
-	if t, ok := getStringFromMap(eventContext, "type"); !ok || t != "pull_request" {
+	if t, ok := getStringFromMap(cfg.eventContext, "type"); !ok || t != "pull_request" {
 		// check only applies to a pull request
 	}
-	raw, ok := getMapFromMap(eventContext, "raw")
+	raw, ok := getMapFromMap(cfg.eventContext, "raw")
 	if !ok {
 		// cannot check without the raw event, assuming ok
 		return nil
@@ -674,7 +684,7 @@ func (cfg *Config) checkCommitInfo(commitInfo string) error {
 		// check is only valid for public PR synchronize
 		return nil
 	}
-	if !cfg.isWorkflowRepository(eventContext) {
+	if !cfg.isWorkflowRepository(cfg.eventContext) {
 		// check is only valid when checking out the workflow repository
 		return nil
 	}
@@ -915,7 +925,7 @@ func getRefSpec(ref string, commit string, provider string) []string {
 			return []string{fmt.Sprintf("+%s:%s", commit, ref)}
 		}
 
-		if provider == BitbucketProvider {
+		if provider == auth.BitbucketProvider {
 			return []string{commit, ref}
 		}
 		return []string{commit}

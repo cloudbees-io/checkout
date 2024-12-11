@@ -46,6 +46,29 @@ oauth_refresh_token=cafebabe-deadbeef
 			wantErr: false,
 		},
 		{
+			name: "bearer",
+			fields: GitCredential{
+				Protocol:       "https",
+				Host:           "git.example.com:8443",
+				Path:           "~/git/example.git",
+				Username:       "git",
+				PasswordExpiry: &testDate,
+				WwwAuth:        nil,
+				AuthType:       "Bearer",
+				Credential:     "secr3t",
+			},
+			want: `capability[]=authtype
+protocol=https
+host=git.example.com:8443
+path=~/git/example.git
+username=git
+password_expiry_utc=987654321
+authtype=Bearer
+credential=secr3t
+`,
+			wantErr: false,
+		},
+		{
 			name: "bad-protocol",
 			fields: GitCredential{
 				Protocol: "ht\ntps",
@@ -105,6 +128,8 @@ oauth_refresh_token=cafebabe-deadbeef
 				PasswordExpiry:    tt.fields.PasswordExpiry,
 				OAuthRefreshToken: tt.fields.OAuthRefreshToken,
 				WwwAuth:           tt.fields.WwwAuth,
+				AuthType:          tt.fields.AuthType,
+				Credential:        tt.fields.Credential,
 			}
 			w := &bytes.Buffer{}
 			got, err := c.WriteTo(w)

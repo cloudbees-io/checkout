@@ -37,6 +37,10 @@ type GitCredential struct {
 	// appear in the HTTP response. This attribute is one-way from Git to pass additional information to credential
 	// helpers.
 	WwwAuth []string
+	// AuthType - https://git-scm.com/docs/git-credential#Documentation/git-credential.txt-codeauthtypecode
+	AuthType string
+	// Credential - to be set when 'authtype' is set to 'Bearer', see - https://git-scm.com/docs/git-credential#Documentation/git-credential.txt-codecredentialcode
+	Credential string
 }
 
 func (c *GitCredential) WriteTo(w io.Writer) (int64, error) {
@@ -64,6 +68,20 @@ func (c *GitCredential) WriteTo(w io.Writer) (int64, error) {
 
 	if isValidGitCredentialHelperValue(c.OAuthRefreshToken) {
 		return n, fmt.Errorf("oauth_refresh_token cannot contain NUL character or newline")
+	}
+
+	if isValidGitCredentialHelperValue(c.AuthType) {
+		return n, fmt.Errorf("authtype cannot contain NUL character or newline")
+	}
+
+	if c.AuthType != "" {
+		i, err := io.WriteString(w, fmt.Sprintf("capability[]=authtype\n"))
+
+		n += int64(i)
+
+		if err != nil {
+			return n, err
+		}
 	}
 
 	if c.Protocol != "" {
@@ -128,6 +146,26 @@ func (c *GitCredential) WriteTo(w io.Writer) (int64, error) {
 
 	if c.OAuthRefreshToken != "" {
 		i, err := io.WriteString(w, fmt.Sprintf("oauth_refresh_token=%s\n", c.OAuthRefreshToken))
+
+		n += int64(i)
+
+		if err != nil {
+			return n, err
+		}
+	}
+
+	if c.AuthType != "" {
+		i, err := io.WriteString(w, fmt.Sprintf("authtype=%s\n", c.AuthType))
+
+		n += int64(i)
+
+		if err != nil {
+			return n, err
+		}
+	}
+
+	if c.Credential != "" {
+		i, err := io.WriteString(w, fmt.Sprintf("credential=%s\n", c.Credential))
 
 		n += int64(i)
 
@@ -223,6 +261,10 @@ func ReadCredential(r io.Reader) (*GitCredential, error) {
 			} else {
 				c.WwwAuth = append(c.WwwAuth, val)
 			}
+		case "authtype":
+			c.AuthType = val
+		case "credential":
+			c.Credential = val
 		}
 	}
 }
