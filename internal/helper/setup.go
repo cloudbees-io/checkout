@@ -90,7 +90,7 @@ func InstallHelperFor(serverURL string, options map[string][]string) (string, fu
 	homePath := os.Getenv("HOME")
 	actionPath := filepath.Join(homePath, ".cloudbees-checkout", uniqueId(serverURL))
 
-	fmt.Println("🔄 Installing credentials helper ...")
+	fmt.Printf("🔄 Installing credentials helper for server url %s...\n", serverURL)
 
 	self, err := os.Executable()
 	if err != nil {

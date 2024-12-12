@@ -208,7 +208,14 @@ func doGet(command *cobra.Command, args []string) error {
 			return err
 		}
 
-		rsp.Password = body["accessToken"]
+		if v, ok := body["tokenType"]; ok && v == "TOKEN_TYPE_BEARER" {
+			rsp.AuthType = "Bearer"
+			rsp.Credential = body["accessToken"]
+		} else {
+			rsp.AuthType = "Basic"
+			rsp.Password = body["accessToken"]
+		}
+
 		if expires, ok := body["expiresAt"]; ok && expires != "" {
 			// we need to parse the time but without pulling in all the swagger deps
 			re := regexp.MustCompile(`(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}).*`)
