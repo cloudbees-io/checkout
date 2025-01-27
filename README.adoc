@@ -58,93 +58,7 @@ Example URLs are `\https://bitbucket.org` or `\https://my-bbdc-server.example.co
 
 === Optional inputs
 
-.The following inputs are available, but not required, to use in this action.
-[.collapsible]
---
-
-[cols="2a,1a,1a,4a",options="header"]
-.Optional input details
-|===
-
-| Input name
-| Data type
-| Required?
-| Description
-
-| `ref`
-| String
-| No
-| The branch, tag or SHA to check out.
-The action uses your default branch, unless you check out a repository that triggered a workflow, in which case it defaults to the reference or SHA for that event.
-
-| `token`
-| String
-| No
-| The PAT used to fetch the repository.
-The PAT is configured with the local Git config, which enables your scripts to run authenticated Git commands.
-
-| `ssh-key`
-| String
-| No
-| SSH key used to fetch the repository.
-The SSH key is configured with the local Git config, which enables your scripts to run authenticated Git commands.
-
-| `ssh-known-hosts`
-| String
-| No
-| Known hosts in addition to the user and global host key database.
-Use the utility `ssh-keyscan` to get public SSH keys for a host.
-For example, use `ssh-keyscan my-ssh-server.example.com` to get the keys for your self-hosted SSH server at `my-ssh-server.example.com`.
-The public keys for GitHub, Bitbucket, and GitLab are already added by default.
-
-| `ssh-strict`
-| Boolean
-| No
-| Default is `true`. When `true`, performs strict host key checking, by adding the options `StrictHostKeyChecking=yes` and `CheckHostIP=no` to the SSH command line.
-Use the input `ssh-known-hosts` to configure additional hosts.
-
-| `persist-credentials`
-| Boolean
-| No
-| Default is `true`. When `true`, the token or SSH key is configured with the local Git config.
-
-| `path`
-| String
-| No
-| The relative path to place the repository under `$CLOUDBEES_WORKSPACE`.
-
-| `clean`
-| Boolean
-| No
-| Default is `true`. When `true`, executes `git clean -ffdx && git reset --hard HEAD` before fetching.
-
-| `fetch-depth`
-| Number
-| No
-| Number of commits to fetch.
-Default is `1`.
-`0` indicates a full history for all branches and tags.
-
-| `lfs`
-| Boolean
-| No
-| Default is `false`. When `true`, downloads Git-LFS files.
-
-| `submodules`
-| Boolean
-| No
-| Default is `false`. When `true`, checks out submodules.
-Use the value `recursive`, to recursively check out submodules.
-When the `ssh-key` input is not provided, SSH URLs beginning with `git@github.com:` are converted to HTTPS.
-
-| `set-safe-directory`
-| Boolean
-| No
-| Default is `true`. When `true`, adds a repository path as `safe.directory` for the Git global config, by running `git config --global --add safe.directory <path>`.
-
-|===
-
---
+Refer to xref:README#optional-inputs[optional inputs] for other inputs available for use in this action.
 
 === Usage example
 
@@ -201,93 +115,7 @@ Example URLs are `\https://github.com` or `\https://my-ghes-server.example.com`.
 
 === Optional inputs
 
-.The following inputs are available, but not required, to use in this action.
-[.collapsible]
---
-
-[cols="2a,1a,1a,4a",options="header"]
-.Optional input details
-|===
-
-| Input name
-| Data type
-| Required?
-| Description
-
-| `ref`
-| String
-| No
-| The branch, tag or SHA to check out.
-The action uses your default branch, unless you check out a repository that triggered a workflow, in which case it defaults to the reference or SHA for that event.
-
-| `token`
-| String
-| No
-| The PAT used to fetch the repository.
-The PAT is configured with the local Git config, which enables your scripts to run authenticated Git commands.
-
-| `ssh-key`
-| String
-| No
-| SSH key used to fetch the repository.
-The SSH key is configured with the local Git config, which enables your scripts to run authenticated Git commands.
-
-| `ssh-known-hosts`
-| String
-| No
-| Known hosts in addition to the user and global host key database.
-Use the utility `ssh-keyscan` to get public SSH keys for a host.
-For example, use `ssh-keyscan my-ssh-server.example.com` to get the keys for your self-hosted SSH server at `my-ssh-server.example.com`.
-The public keys for GitHub, Bitbucket, and GitLab are already added by default.
-
-| `ssh-strict`
-| Boolean
-| No
-| Default is `true`. When `true`, performs strict host key checking, by adding the options `StrictHostKeyChecking=yes` and `CheckHostIP=no` to the SSH command line.
-Use the input `ssh-known-hosts` to configure additional hosts.
-
-| `persist-credentials`
-| Boolean
-| No
-| Default is `true`. When `true`, the token or SSH key is configured with the local Git config.
-
-| `path`
-| String
-| No
-| The relative path to place the repository under `$CLOUDBEES_WORKSPACE`.
-
-| `clean`
-| Boolean
-| No
-| Default is `true`. When `true`, executes `git clean -ffdx && git reset --hard HEAD` before fetching.
-
-| `fetch-depth`
-| Number
-| No
-| Number of commits to fetch.
-Default is `1`.
-`0` indicates a full history for all branches and tags.
-
-| `lfs`
-| Boolean
-| No
-| Default is `false`. When `true`, downloads Git-LFS files.
-
-| `submodules`
-| Boolean
-| No
-| Default is `false`. When `true`, checks out submodules.
-Use the value `recursive`, to recursively check out submodules.
-When the `ssh-key` input is not provided, SSH URLs beginning with `git@github.com:` are converted to HTTPS.
-
-| `set-safe-directory`
-| Boolean
-| No
-| Default is `true`. When `true`, adds a repository path as `safe.directory` for the Git global config, by running `git config --global --add safe.directory <path>`.
-
-|===
-
---
+Refer to xref:README#optional-inputs[optional inputs] for other inputs available for use in this action.
 
 === Usage example
 
@@ -343,11 +171,29 @@ Unless specified, the base URL uses environment defaults to fetch from the same 
 Example URLs are `\https://gitlab.com` or `\https://my-gl-server.example.com`.
 |===
 
-=== Optional inputs
+=== Usage example
 
-.The following inputs are available, but not required, to use in this action.
-[.collapsible]
---
+The following example uses this action to check out the last commit of the default branch of a GitLab repository, using the CloudBees API token.
+Submodules are recursively checked out.
+
+[source,yaml,role="default-expanded"]
+----
+      - name: Check out GitLab repo
+        uses: cloudbees-io/checkout@v1
+        with:
+          provider: 'gitlab'
+          repository: 'my_name/my_repo'
+          gitlab-server-url: 'https://my-gl-server.example.com'
+          token: ${{ cloudbees.scm.token }}
+          path: 'my_path'
+          fetch-depth: 1
+          submodules: 'recursive'
+
+----
+
+== Optional inputs
+
+The following inputs are available, but not required, to use in this action with any SCM provider.
 
 [cols="2a,1a,1a,4a",options="header"]
 .Optional input details
@@ -430,28 +276,6 @@ When the `ssh-key` input is not provided, SSH URLs beginning with `git@github.co
 | Default is `true`. When `true`, adds a repository path as `safe.directory` for the Git global config, by running `git config --global --add safe.directory <path>`.
 
 |===
-
---
-
-=== Usage example
-
-The following example uses this action to check out the last commit of the default branch of a GitLab repository, using the CloudBees API token.
-Submodules are recursively checked out.
-
-[source,yaml,role="default-expanded"]
-----
-      - name: Check out GitLab repo
-        uses: cloudbees-io/checkout@v1
-        with:
-          provider: 'gitlab'
-          repository: 'my_name/my_repo'
-          gitlab-server-url: 'https://my-gl-server.example.com'
-          token: ${{ cloudbees.scm.token }}
-          path: 'my_path'
-          fetch-depth: 1
-          submodules: 'recursive'
-
-----
 
 == License
 
