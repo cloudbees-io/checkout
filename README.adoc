@@ -16,8 +16,8 @@ CloudBees recommends:
 
 Check out a repository from any of the following source code management (SCM) providers:
 
-* link:https://github.com/cloudbees-io/checkout/main/README.adoc#bitbucket-repository-check-out[Bitbucket]
-* link:https://github.com/cloudbees-io/checkout/main/README.adoc#github-repository-check-out[GitHub]
+* xref:README.adoc#bitbucket-repository-check-out[Bitbucket]
+* xref:README.adoc#github-repository-check-out[GitHub]
 * xref:README.adoc#gitlab-repository-check-out[GitLab]
 
 == Bitbucket repository check out
