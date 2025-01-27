@@ -56,7 +56,7 @@ Example URLs are `\https://bitbucket.org` or `\https://my-bbdc-server.example.co
 
 |===
 
-=== Optional inputs
+=== Non-required inputs
 
 Refer to xref:README#optional-inputs[optional inputs] for other inputs available for use in this action.
 
@@ -113,7 +113,7 @@ Example URLs are `\https://github.com` or `\https://my-ghes-server.example.com`.
 
 |===
 
-=== Optional inputs
+=== Non-required inputs
 
 Refer to xref:README#optional-inputs[optional inputs] for other inputs available for use in this action.
 
@@ -170,6 +170,10 @@ The following inputs are required for using this action with a GitLab repository
 Unless specified, the base URL uses environment defaults to fetch from the same instance the workflow is running from.
 Example URLs are `\https://gitlab.com` or `\https://my-gl-server.example.com`.
 |===
+
+=== Non-required inputs
+
+Refer to xref:README#optional-inputs[optional inputs] for other inputs available for use in this action.
 
 === Usage example
 
