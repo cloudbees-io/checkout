@@ -31,6 +31,8 @@ func (cfg *Config) fetchURL(ssh bool) (string, error) {
 		return cfg.githubCloneUrl(ssh)
 	case auth.BitbucketProvider:
 		return cfg.bitbucketCloneUrl(ssh)
+	case auth.BitbucketDatacenterProvider:
+		return cfg.bitbucketCloneUrl(ssh)
 	case auth.GitLabProvider:
 		return cfg.gitlabCloneUrl(ssh)
 	case auth.CustomProvider:
