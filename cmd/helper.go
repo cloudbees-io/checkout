@@ -137,6 +137,15 @@ func doGet(command *cobra.Command, args []string) error {
 		}
 	}
 
+	if closest.HasOption("credential") {
+		if b, err := base64.StdEncoding.DecodeString(closest.Option("credential")); err == nil {
+			rsp.Credential = string(b)
+			rsp.AuthType = "Bearer"
+		} else {
+			return err
+		}
+	}
+
 	if closest.HasOption("cloudBeesApiToken") && closest.HasOption("cloudBeesApiUrl") {
 		var token string
 		if b, err := base64.StdEncoding.DecodeString(closest.Option("cloudBeesApiToken")); err == nil {

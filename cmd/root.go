@@ -32,6 +32,7 @@ func init() {
 	cmd.Flags().StringVar(&cfg.CloudBeesApiToken, "cloudbees-api-token", "", "CloudBees API token used to fetch authentication")
 	cmd.Flags().StringVar(&cfg.CloudBeesApiURL, "cloudbees-api-url", "", "CloudBees API root URL to fetch authentication from")
 	cmd.Flags().StringVar(&cfg.Token, "token", "", "Personal access token (PAT) used to fetch the repository")
+	cmd.Flags().StringVar(&cfg.TokenAuthtype, "token-auth-type", "", "Auth type of the token, one of `basic` or `bearer`")
 	cmd.Flags().StringVar(&cfg.SSHKey, "ssh-key", "", "SSH key used to fetch the repository")
 	cmd.Flags().StringVar(&cfg.SSHKnownHosts, "ssh-known-hosts", "", "Known hosts in addition to the user and global host key database")
 	cmd.Flags().BoolVar(&cfg.SSHStrict, "ssh-strict", true, "Whether to perform strict host key checking")

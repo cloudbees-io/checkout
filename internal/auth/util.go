@@ -44,10 +44,11 @@ func noOpClean() error {
 }
 
 type TokenAuth struct {
-	Provider string
-	ScmToken string
-	ApiURL   string
-	ApiToken string
+	Provider      string
+	ScmToken      string
+	TokenAuthType string
+	ApiURL        string
+	ApiToken      string
 }
 
 func (a *TokenAuth) providerUsername() string {
@@ -73,7 +74,16 @@ func (a *TokenAuth) options() map[string][]string {
 	options := make(map[string][]string)
 	options["username"] = []string{a.providerUsername()}
 	if a.ScmToken != "" {
-		options["password"] = []string{base64.StdEncoding.EncodeToString([]byte(a.ScmToken))}
+		encodedToken := base64.StdEncoding.EncodeToString([]byte(a.ScmToken))
+		switch strings.ToLower(a.TokenAuthType) {
+		case "basic":
+			options["password"] = []string{encodedToken}
+		case "bearer":
+			// https://github.com/cloudbees-io/checkout/blob/9986681fa9b267f4282399c4e55806af0ba97aa6/internal/helper/credential.go#L42
+			options["credential"] = []string{encodedToken}
+		default:
+			options["password"] = []string{encodedToken}
+		}
 	} else if a.ApiToken != "" && a.ApiURL != "" {
 		options["cloudBeesApiUrl"] = []string{a.ApiURL}
 		options["cloudBeesApiToken"] = []string{base64.StdEncoding.EncodeToString([]byte(a.ApiToken))}

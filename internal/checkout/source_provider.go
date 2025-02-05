@@ -26,6 +26,7 @@ type Config struct {
 	CloudBeesApiToken            string
 	CloudBeesApiURL              string
 	Token                        string
+	TokenAuthtype                string
 	SSHKey                       string
 	SSHKnownHosts                string
 	SSHStrict                    bool
@@ -80,6 +81,7 @@ func (cfg *Config) validate() error {
 	core.Debug("provider = %s", cfg.Provider)
 	core.Debug("repository = %s", cfg.Repository)
 	core.Debug("providerURL = %s", cfg.providerURL)
+	core.Debug("token auth type = %s", cfg.TokenAuthtype)
 
 	// Repository
 	if cfg.Provider != auth.CustomProvider {
@@ -378,10 +380,11 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 
 	cleaner, helperCommand, err := auth.ConfigureToken(
 		cli, "", false, cfg.serverURL(), auth.TokenAuth{
-			Provider: cfg.Provider,
-			ScmToken: cfg.Token,
-			ApiToken: cfg.CloudBeesApiToken,
-			ApiURL:   cfg.CloudBeesApiURL,
+			Provider:      cfg.Provider,
+			ScmToken:      cfg.Token,
+			TokenAuthType: cfg.TokenAuthtype,
+			ApiToken:      cfg.CloudBeesApiToken,
+			ApiURL:        cfg.CloudBeesApiURL,
 		})
 	if err != nil {
 		return err
@@ -505,10 +508,11 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		core.StartGroup("Setting up auth for fetching submodules")
 
 		cleaner, _, err := auth.ConfigureToken(cli, "", true, cfg.serverURL(), auth.TokenAuth{
-			Provider: cfg.Provider,
-			ScmToken: cfg.Token,
-			ApiToken: cfg.CloudBeesApiToken,
-			ApiURL:   cfg.CloudBeesApiURL,
+			Provider:      cfg.Provider,
+			ScmToken:      cfg.Token,
+			TokenAuthType: cfg.TokenAuthtype,
+			ApiToken:      cfg.CloudBeesApiToken,
+			ApiURL:        cfg.CloudBeesApiURL,
 		})
 		if err != nil {
 			return err
