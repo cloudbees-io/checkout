@@ -30,6 +30,9 @@ inputs:
 
       We recommend using a service account with the least permissions necessary.
       Also when generating a new PAT, select the least scopes necessary.
+  token-auth-type:
+    description: 'The auth type of the token being used. Supported values are `bearer` and `basic`'
+    default: "basic"
   ssh-key:
     description: >
       SSH key used to fetch the repository. The SSH key is configured with the local
@@ -100,6 +103,7 @@ runs:
           "--cloudbees-api-token=${{ inputs.cloudbees-api-token }}" \
           "--cloudbees-api-url=${{ inputs.cloudbees-api-url }}" \
           "--token=${{ inputs.token }}" \
+          "--token-auth-type=${{ inputs.token-auth-type }}" \
           "--ssh-key=${{ inputs.ssh-key }}" \
           "--ssh-known-hosts=${{ inputs.ssh-known-hosts }}" \
           "--ssh-strict=${{ inputs.ssh-strict }}" \
