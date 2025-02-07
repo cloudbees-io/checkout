@@ -207,10 +207,33 @@ func (cfg *Config) validate() error {
 				return fmt.Errorf("missing Bitbucket Server URL")
 			}
 		}
+
+		if err := cfg.ensureScmPathForBitbucketDatacenterUrl(); err != nil {
+			return err
+		}
+
 		core.Debug("Bitbucket Host URL = %s", cfg.BitbucketServerURL)
 	}
 
 	return nil
+}
+
+func (cfg *Config) ensureScmPathForBitbucketDatacenterUrl() error {
+	if cfg.Provider != auth.BitbucketDatacenterProvider {
+		return nil
+	}
+
+	p, err := url.Parse(cfg.BitbucketServerURL)
+	if err != nil {
+		return err
+	}
+
+	if strings.HasSuffix(p.Path, "/scm") || strings.HasSuffix(p.Path, "/scm/") {
+		return nil
+	}
+
+	cfg.BitbucketServerURL, err = url.JoinPath(cfg.BitbucketServerURL, "scm")
+	return err
 }
 
 func (cfg *Config) findEventContext() error {
