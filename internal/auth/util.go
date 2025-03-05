@@ -17,10 +17,10 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/cloudbees-io/checkout/internal/git"
 	"github.com/cloudbees-io/checkout/internal/helper"
 
-	"github.com/cloudbees-io/checkout/internal/git"
-	"gopkg.in/alessio/shellescape.v1"
+	"al.essio.dev/pkg/shellescape"
 )
 
 const (
