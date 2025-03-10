@@ -19,12 +19,12 @@ The CloudBees API token is used to fetch an app access token if neither the PAT 
 
 | `provider`
 | String
-| Yes
+| No
 | SCM provider hosting the repository, such as GitHub, Bitbucket, or GitLab.
 
 | `repository`
 | String
-| Yes
+| No
 | Repository name with owner, for example, `actions/checkout`.
 
 | `ref`
