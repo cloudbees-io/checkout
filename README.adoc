@@ -4,9 +4,29 @@ Use this action to check out a Git repository under `+$CLOUDBEES_WORKSPACE+`, to
 
 Your authentication for the checked-out repository is persisted in the local Git config file by default, so your scripts can run authenticated Git commands in any container image that has Git executables.
 
-The CloudBees API token is used to fetch an app access token if neither the PAT nor a SSH key are provided.
+The CloudBees API token is used to fetch an app access token if neither a personal access token (PAT) nor an SSH key are provided.
 
-== Inputs
+[NOTE]
+====
+CloudBees recommends:
+
+* Use a service account that limits user access to only necessary permissions.
+* When generating a new PAT, select the narrowest possible scope.
+====
+
+Check out a repository from any of the following source code management (SCM) providers:
+
+* xref:README.adoc#bitbucket-repository-check-out[Bitbucket]
+* xref:README.adoc#github-repository-check-out[GitHub]
+* xref:README.adoc#gitlab-repository-check-out[GitLab]
+
+== Bitbucket repository check out
+
+Use this action to check out a Bitbucket repository.
+
+=== Required inputs
+
+The following inputs are required for using this action with a Bitbucket repository.
 
 [cols="2a,1a,1a,4a",options="header"]
 .Input details
@@ -20,12 +40,173 @@ The CloudBees API token is used to fetch an app access token if neither the PAT 
 | `provider`
 | String
 | Yes
-| SCM provider hosting the repository, such as GitHub, Bitbucket, or GitLab.
+| SCM provider hosting the repository. Specify `bitbucket`.
 
 | `repository`
 | String
 | Yes
 | Repository name with owner, for example, `actions/checkout`.
+
+| `bitbucket-server-url`
+| String
+| Yes
+| The base URL for the Bitbucket instance that you are cloning from.
+Unless specified, the base URL uses environment defaults to fetch from the same instance the workflow is running from.
+Example URLs are `\https://bitbucket.org` or `\https://my-bbdc-server.example.com`.
+
+|===
+
+=== Non-required inputs
+
+Refer to xref:README#optional-inputs[optional inputs] for other inputs available for use in this action.
+
+=== Usage example
+
+The following example uses this action to check out the `test` branch of a Bitbucket repository, using a PAT.
+
+[source,yaml]
+----
+      - name: Check out Bitbucket repo
+        uses: cloudbees-io/checkout@v1
+        with:
+          provider: bitbucket
+          repository: 'my-name/my-repo-name'
+          bitbucket-server-url: https://bitbucket.org
+          ref: test
+          token: ${{ secrets.MY_BITBUCKET_PAT }}
+
+----
+
+== GitHub repository check out
+
+Use this action to check out a GitHub repository.
+
+=== Required inputs
+
+The following inputs are required for using this action with a GitHub repository.
+
+[cols="2a,1a,1a,4a",options="header"]
+.Input details
+|===
+
+| Input name
+| Data type
+| Required?
+| Description
+
+| `provider`
+| String
+| Yes
+| SCM provider hosting the repository. Specify `github`.
+
+| `repository`
+| String
+| Yes
+| Repository name with owner, for example, `actions/checkout`.
+
+| `github-server-url`
+| String
+| Yes
+| The base URL for the GitHub instance that you are cloning from.
+Unless specified, the base URL uses environment defaults to fetch from the same instance the workflow is running from.
+Example URLs are `\https://github.com` or `\https://my-ghes-server.example.com`.
+
+|===
+
+=== Non-required inputs
+
+Refer to xref:README#optional-inputs[optional inputs] for other inputs available for use in this action.
+
+=== Usage example
+
+The following example uses this action to check out the full history of the default branch of a GitHub repository, using an SSH key.
+The authentication does not persist.
+
+[source,yaml]
+----
+      - name: Check out GitHub repo
+        uses: cloudbees-io/checkout@v1
+        with:
+          provider: github
+          repository: 'my-name/my-repo-name'
+          github-server-url: 'https://github.com'
+          ssh-key: {{ secrets.MY_SSH_KEY }}
+          persist-credentials: false
+          fetch-depth: 0
+
+----
+
+== GitLab repository check out
+
+Use this action to check out a GitLab repository.
+
+=== Inputs
+
+The following inputs are required for using this action with a GitLab repository.
+
+[cols="2a,1a,1a,4a",options="header"]
+.Input details
+|===
+
+| Input name
+| Data type
+| Required?
+| Description
+
+| `provider`
+| String
+| Yes
+| SCM provider hosting the repository. Specify `gitlab`.
+
+| `repository`
+| String
+| Yes
+| Repository name with owner, for example, `actions/checkout`.
+
+| `gitlab-server-url`
+| String
+| No
+| The base URL for the GitLab instance that you are cloning from.
+Unless specified, the base URL uses environment defaults to fetch from the same instance the workflow is running from.
+Example URLs are `\https://gitlab.com` or `\https://my-gl-server.example.com`.
+|===
+
+=== Non-required inputs
+
+Refer to xref:README#optional-inputs[optional inputs] for other inputs available for use in this action.
+
+=== Usage example
+
+The following example uses this action to check out the last commit of the default branch of a GitLab repository, using the CloudBees API token.
+Submodules are recursively checked out.
+
+[source,yaml,role="default-expanded"]
+----
+      - name: Check out GitLab repo
+        uses: cloudbees-io/checkout@v1
+        with:
+          provider: 'gitlab'
+          repository: 'my_name/my_repo'
+          gitlab-server-url: 'https://my-gl-server.example.com'
+          token: ${{ cloudbees.scm.token }}
+          path: 'my_path'
+          fetch-depth: 1
+          submodules: 'recursive'
+
+----
+
+== Optional inputs
+
+The following inputs are available, but not required, to use in this action with any SCM provider.
+
+[cols="2a,1a,1a,4a",options="header"]
+.Optional input details
+|===
+
+| Input name
+| Data type
+| Required?
+| Description
 
 | `ref`
 | String
@@ -35,9 +216,9 @@ The action uses your default branch, unless you check out a repository that trig
 
 | `token`
 | String
-| No 
+| No
 | The PAT used to fetch the repository.
-The PAT is configured with the local Git config, which enables your scripts to run authenticated Git commands. 
+The PAT is configured with the local Git config, which enables your scripts to run authenticated Git commands.
 
 | `ssh-key`
 | String
@@ -98,65 +279,7 @@ When the `ssh-key` input is not provided, SSH URLs beginning with `git@github.co
 | No
 | Default is `true`. When `true`, adds a repository path as `safe.directory` for the Git global config, by running `git config --global --add safe.directory <path>`.
 
-| `github-server-url`
-| String
-| No
-| The base URL for the GitHub instance that you are cloning from.
-Unless specified, the base URL uses environment defaults to fetch from the same instance the workflow is running from.
-Example URLs are `\https://github.com` or `\https://my-ghes-server.example.com`.
-
-| `bitbucket-server-url`
-| String
-| No
-| The base URL for the Bitbucket instance that you are cloning from.
-Unless specified, the base URL uses environment defaults to fetch from the same instance the workflow is running from.
-Example URLs are `\https://bitbucket.org` or `\https://my-bbdc-server.example.com`.
-
-| `gitlab-server-url`
-| String
-| No
-| The base URL for the GitLab instance that you are cloning from.
-Unless specified, the base URL uses environment defaults to fetch from the same instance the workflow is running from.
-Example URLs are `\https://gitlab.com` or `\https://my-gl-server.example.com`.
 |===
-
-== Usage example
-
-In the YAML file, all values are required, unless otherwise noted. Default values are included in the example YAML file below. Refer to the notes for options and details.
-
-[NOTE]
-====
-CloudBees recommends:
-
-* Use a service account that limits user access to only necessary permissions.
-* When generating a new PAT, select the narrowest possible scope.
-====
-
-In your YAML file, add:
-
-[source,yaml]
-----
-      - name: Check out repo
-        uses: cloudbees-io/checkout@v1
-        with:
-          provider: ${{ cloudbees.scm.provider }}
-          repository: ${{ cloudbees.repository }}
-          ref: ''
-          token: ${{ cloudbees.scm.token }}
-          ssh-key: ''
-          ssh-known-hosts: ''
-          ssh-strict: true
-          persist-credentials: true
-          path: ''
-          clean: true
-          fetch-depth: 1
-          lfs: false
-          submodules: false
-          set-safe-directory: true
-          github-server-url: ''
-          bitbucket-server-url: ''
-          gitlab-server-url: ''
-----
 
 == License
 
@@ -165,9 +288,5 @@ link:https://opensource.org/license/mit/[MIT license].
 
 == References
 
-* Learn more about link:https://docs.cloudbees.com/docs/cloudbees-saas-platform-actions/latest/[using actions in CloudBees workflows].
-* Learn about link:https://docs.cloudbees.com/docs/cloudbees-saas-platform/latest/[the CloudBees platform].
-
-
-
-
+* Learn more about link:https://docs.cloudbees.com/docs/cloudbees-platform/latest/actions[using actions in CloudBees workflows].
+* Learn about link:https://docs.cloudbees.com/docs/cloudbees-platform/latest/[the CloudBees platform].
