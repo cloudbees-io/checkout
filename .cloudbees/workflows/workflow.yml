@@ -44,6 +44,7 @@ jobs:
     needs: build
     steps:
       - name: Run Action
+        id: runaction
         uses: ./.cloudbees/testing
         env:
           RUNNER_DEBUG: "1"
@@ -54,3 +55,7 @@ jobs:
           [ -d .git ]
           [ -f Dockerfile ]
           go build .
+          echo Repository URL = ${{ steps.runaction.outputs.repository-url }}
+          echo Commit ID = ${{ steps.runaction.outputs.commit }}
+          echo Commit URL = ${{ steps.runaction.outputs.commit-url }}
+          echo Ref = ${{ steps.runaction.outputs.ref }}

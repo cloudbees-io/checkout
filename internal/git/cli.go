@@ -240,6 +240,24 @@ func (g *GitCLI) TagExists(pattern string) (bool, error) {
 	return strings.TrimSpace(output) != "", nil
 }
 
+func (g *GitCLI) GetLastCommitId() (string, error) {
+	output, err := g.runOutput("log", "-1", "--format=%H")
+	if err != nil {
+		return "", err
+	}
+	core.Debug("GetLastCommitId returns %s", output)
+	return output, nil
+}
+
+func (g *GitCLI) GetCurrentBranch() (string, error) {
+	output, err := g.runOutput("branch", "--show-current")
+	if err != nil {
+		return "", err
+	}
+	core.Debug("GetCurrentBranch returns %s", output)
+	return output, nil
+}
+
 func (g *GitCLI) BranchGetDefault(repositoryUrl string) (string, error) {
 	output, err := g.runOutput("ls-remote", "--quiet", "--exit-code", "--symref", repositoryUrl, "HEAD")
 	if err != nil {

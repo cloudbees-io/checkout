@@ -134,7 +134,6 @@ Default is `basic`.
 
 |===
 
-
 == Outputs
 
 [cols="2a,2a,2a,5a",options="header"]
@@ -187,6 +186,7 @@ In your YAML file, add:
 ----
       - name: Check out repo
         uses: cloudbees-io/checkout@v1
+        id: checkout
         with:
           provider: ${{ cloudbees.scm.provider }}
           repository: ${{ cloudbees.repository }}
@@ -205,6 +205,14 @@ In your YAML file, add:
           github-server-url: ''
           bitbucket-server-url: ''
           gitlab-server-url: ''
+      - name: Display outputs
+        uses: docker://golang:1.20.3-alpine3.17
+        shell: sh
+        run: |
+          echo Repository URL = ${{ steps.checkout.outputs.repository-url }}
+          echo Commit ID = ${{ steps.checkout.outputs.commit }}
+          echo Commit URL = ${{ steps.checkout.outputs.commit-url }}
+          echo Ref = ${{ steps.checkout.outputs.ref }}
 ----
 
 == License
