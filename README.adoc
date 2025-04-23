@@ -118,8 +118,36 @@ Example URLs are `\https://bitbucket.org` or `\https://my-bbdc-server.example.co
 | The base URL for the GitLab instance that you are cloning from.
 Unless specified, the base URL uses environment defaults to fetch from the same instance the workflow is running from.
 Example URLs are `\https://gitlab.com` or `\https://my-gl-server.example.com`.
+
 |===
 
+== Outputs
+
+[cols="2a,1a,3a",options="header"]
+.Output details
+|===
+
+| Input name
+| Data type
+| Description
+
+| `repository-url`
+| String
+| The clone URL of the repository.
+
+| `commit`
+| String
+| The commit ID from the source repository.
+
+| `commit-url`
+| String
+| The commit URL from the source repository. This may be 'Unavailable' if the commit is a local merge commit.
+
+| `ref`
+| String
+| The ref or branch of the checked-out repository. This may be empty if in a detached-head state or if the commit is a local merge commit.
+
+|===
 == Usage example
 
 In the YAML file, all values are required, unless otherwise noted. Default values are included in the example YAML file below. Refer to the notes for options and details.
@@ -138,6 +166,7 @@ In your YAML file, add:
 ----
       - name: Check out repo
         uses: cloudbees-io/checkout@v1
+        id: checkout
         with:
           provider: ${{ cloudbees.scm.provider }}
           repository: ${{ cloudbees.repository }}
@@ -156,6 +185,14 @@ In your YAML file, add:
           github-server-url: ''
           bitbucket-server-url: ''
           gitlab-server-url: ''
+      - name: Display outputs
+        uses: docker://golang:1.20.3-alpine3.17
+        shell: sh
+        run: |
+          echo Repository URL = ${{ steps.checkout.outputs.repository-url }}
+          echo Commit ID = ${{ steps.checkout.outputs.commit }}
+          echo Commit URL = ${{ steps.checkout.outputs.commit-url }}
+          echo Ref = ${{ steps.checkout.outputs.ref }}
 ----
 
 == License

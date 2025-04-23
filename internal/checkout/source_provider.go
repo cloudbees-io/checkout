@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -46,6 +47,7 @@ type Config struct {
 	githubWorkflowOrganizationId string
 	eventContext                 map[string]interface{}
 	providerURL                  string
+	LocalMerge                   bool
 }
 
 var shaRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
@@ -216,6 +218,68 @@ func (cfg *Config) validate() error {
 	}
 
 	return nil
+}
+
+func (cfg *Config) writeActionOutputs(cli *git.GitCLI) error {
+	//Output commit details
+	outDir := os.Getenv("CLOUDBEES_OUTPUTS")
+	fullUrl, err := cfg.fetchURL(cfg.SSHKey != "")
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(filepath.Join(outDir, "repository-url"), []byte(fullUrl), 0640)
+	if err != nil {
+		return err
+	}
+	commitId := cfg.Commit
+	if commitId == "" {
+		commitId, err = cli.GetLastCommitId()
+		if err != nil {
+			return err
+		}
+	}
+	// If it's a local merge, set commit ID to empty.
+	if cfg.LocalMerge {
+		commitId = ""
+	}
+	err = os.WriteFile(filepath.Join(outDir, "commit"), []byte(commitId), 0640)
+	if err != nil {
+		return err
+	}
+
+	fullCommitUrl := "Unavailable"
+	if commitId != "" {
+		// Remove .git suffix if present
+		fullUrl = strings.TrimSuffix(fullUrl, ".git")
+		//GitHub and GitLab use "commit" in the URL, Bitbucket uses "commits"
+		switch cfg.Provider {
+		case auth.GitHubProvider:
+			fallthrough
+		case auth.GitLabProvider:
+			fullCommitUrl = fullUrl + "/commit/" + commitId
+		case auth.BitbucketProvider:
+			fullCommitUrl = fullUrl + "/commits/" + commitId
+		case auth.BitbucketDatacenterProvider:
+			name := strings.Split(cfg.Repository, "/")
+			if len(name) == 2 {
+				fullCommitUrl = cfg.providerURL + "projects/" + name[0] + "/repos/" + name[1] + "/commits/" + commitId
+			}
+		}
+	}
+
+	err = os.WriteFile(filepath.Join(outDir, "commit-url"), []byte(fullCommitUrl), 0640)
+	if err != nil {
+		return err
+	}
+	// Use input ref or branch if not supplied
+	ref := cfg.Ref
+	if ref == "" {
+		ref, err = cli.GetCurrentBranch()
+		if err != nil {
+			return err
+		}
+	}
+	return os.WriteFile(filepath.Join(outDir, "ref"), []byte(ref), 0640)
 }
 
 func (cfg *Config) ensureScmPathForBitbucketDatacenterUrl() error {
@@ -524,6 +588,10 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	}
 	core.EndGroup("Ref checked out")
 
+	if err := cfg.writeActionOutputs(cli); err != nil {
+		// Report warning but do not block checkout
+		log.Printf("Warning: failed to write checkout action outputs: %v", err)
+	}
 	// Submodules
 	cfg.Submodules = strings.ToLower(strings.TrimSpace(cfg.Submodules))
 	if cfg.Submodules == "true" || cfg.Submodules == "recursive" {
@@ -672,6 +740,7 @@ func (cfg *Config) doLocalMerge(cli *git.GitCLI, repositoryURL string, credsHelp
 	if mergeCommit, ok := getStringFromMap(mergeData, "merge_commit"); ok {
 		cfg.Commit = mergeCommit
 		cfg.Ref = ""
+		cfg.LocalMerge = true
 
 		fmt.Printf("Pull request merged with commit: %s\n", mergeCommit)
 		if fetchLoc, ok := getStringFromMap(mergeData, "fetched_loc"); ok {

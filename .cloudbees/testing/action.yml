@@ -87,10 +87,25 @@ inputs:
   gitlab-server-url:
     description: The base URL for the GitLab instance that you are trying to clone from, will use environment defaults (i.e. the GITLAB_SERVER_URL environment variable) to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://gitlab.com or https://my-gl-server.example.com
     required: false
+
+outputs:
+  repository-url:
+    value: ${{ steps.checkout.outputs.repository-url }}
+    description: "The clone URL of the repository"
+  commit:
+    value: ${{ steps.checkout.outputs.commit }}
+    description: "Commit ID from source repository"
+  commit-url:
+    value: ${{ steps.checkout.outputs.commit-url }}
+    description: "Commit URL from source repository"
+  ref:
+    value: ${{ steps.checkout.outputs.ref }}
+    description: "Ref or branch of the checked-out repository"
 runs:
   using: composite
   steps:
     - name: Checkout
+      id: checkout
       uses: docker://020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:${{ action.scm.sha }}
       env:
         CLOUDBEES_EVENT_PATH: /cloudbees/event.json
