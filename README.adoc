@@ -134,6 +134,41 @@ Default is `basic`.
 
 |===
 
+
+== Outputs
+
+[cols="2a,2a,2a,5a",options="header"]
+.Output details
+|===
+
+| Output name
+| Data type
+| Required?
+| Description
+
+| `commit`
+| String
+| No
+| The commit ID for the source repository.
+
+| `commit-url`
+| String
+| No
+| The commit URL from the source
+
+| `ref`
+| String
+| No
+| The ref or branch for the checked-out repository. Leave empty when in a detached-head state, commiting, or merging.
+
+| `repository-url`
+| String
+|No
+| The base URL for the instance to clone. Set to `unavailable` for local a commit or merge.
+
+
+|===
+
 == Usage example
 
 In the YAML file, all values are required, unless otherwise noted. Default values are included in the example YAML file below. Refer to the notes for options and details.
