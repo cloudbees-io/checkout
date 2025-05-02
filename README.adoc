@@ -20,7 +20,7 @@ The CloudBees API token is used to fetch an app access token if neither the PAT 
 | `bitbucket-server-url`
 | String
 | No
-| The base URL for the Bitbucket instance to clone. The environment defaults, such as `BITBUCKET_SERVER_URL` are used to fetch the same instance running the workflow. Example URLs:  `https://bitbucket.org` or `https://my-bbdc-server.example.com`
+| The base URL for the Bitbucket instance to clone. The environment defaults, such as `BITBUCKET_SERVER_URL` are used to fetch the same instance running the workflow. Example URLs:  `https://bitbucket.org` or `https://my-bbdc-server.example.com`.
 
 | `clean`
 | Boolean
@@ -30,12 +30,7 @@ The CloudBees API token is used to fetch an app access token if neither the PAT 
 |`cloudbees-api-token`
 | String
 | No
-| The CloudBees API Token to use when fetching SCM token when a `token` or `ssh-key` are not used. Default value is `${{ cloudbees.api.token }}`
-
-|`cloudbees-api-url`
-| String
-| No
-|The CloudBees API root URL to use when fetching SCM tokens. The default value is `${{ cloudbees.api.url }}`
+| The CloudBees API Token to use when fetching SCM token when a `token` or `ssh-key` are not used. Default value is `${{ cloudbees.api.token }}`.
 
 | `fetch-depth`
 | Number
@@ -47,12 +42,7 @@ Default is `1`.
 | `github-server-url`
 | String
 | No
-| The base URL for the GitHub instance to clone. The environment defaults, such as `GITHUB_SERVER_URL` are used to fetch the same instance running the workflow. Example URLs:  `https://github.com` or `https://my-ghes-server.example.com`
-
-| `gitlab-server-url`
-| String
-| No
-| The base URL for the GitLab instance to clone. The environment defaults, such as `GITLAB_SERVER_URL` are used to fetch the same instance running the workflow. Example URLs:  `https://gitlab.com` or `https://my-gl-server.example.com`
+| The base URL for the GitHub instance to clone. The environment defaults, such as `GITHUB_SERVER_URL` are used to fetch the same instance running the workflow. Example URLs:  `https://github.com` or `https://my-ghes-server.example.com`.
 
 | `lfs`
 | Boolean
@@ -67,13 +57,13 @@ Default is `1`.
 | `persist-credentials`
 | Boolean
 | No
-| Default is `true`. When `true`, the token or SSH key is configured with the local Git configuration.
+| The default value is `true`.  When `true`, the SSH key is configured within the local Git config. This enables subsequently run scripts to execute using authenticated Git commands.
 
 | `provider`
 | String
 | No
 
-|  The SCM provider hosting the repository. For example GitHub, BitBucket, GitLab or custom. The default is `${{ cloudbees.scm.provider }}`
+|  The SCM provider hosting the repository. For example GitHub, BitBucket, or custom. The default is `${{ cloudbees.scm.provider }}`.
 
 | `ref`
 | String
@@ -84,7 +74,7 @@ The action uses the default branch, except when checking out the triggering work
 | `repository`
 | String
 | No
-| The repository name with owner. For example, actions/checkout. For example, `actions/checkout`. If the provider is custom then the value is the repository URL  Default value is `${{ cloudbees.scm.repository }}`
+| The repository name with owner. For example, `actions/checkout`. Default value is `${{ cloudbees.scm.repository }}`.
 
 | `set-safe-directory`
 | Boolean
@@ -97,14 +87,16 @@ The action uses the default branch, except when checking out the triggering work
 | SSH key used to fetch the repository.
 The SSH key is configured with the local Git config, which enables scripts to run authenticated Git commands.
 
-We recommend using a service account with minimal permissions.
+We recommend using the platform authentication instead of SSH keys.   Do not use SSH keys if using the  authentication built into the platform for the workflow repository or  authentication using the `configure-git-global-credentials` action is possible.
+
+
 
 | `ssh-known-hosts`
 | String
 | No
-| The SSH keys for a host and the user and global host key database. Use the utility `ssh-keyscan` to get public SSH keys for a host.
+| A list of known SSH hosts that should be added to the global host database. Use the utility `ssh-keyscan` to get public SSH keys for a host.
 
-The public keys for GitHub, Bitbucket, and GitLab are  implicitly added by default.
+The public keys for GitHub and Bitbucket are  implicitly added by default.
 
 | `ssh-strict`
 | Boolean
@@ -136,34 +128,31 @@ Default is `basic`.
 
 == Outputs
 
-[cols="2a,2a,2a,5a",options="header"]
+[cols="2a,2a,5a",options="header"]
 .Output details
 |===
 
 | Output name
 | Data type
-| Required?
 | Description
 
 | `commit`
 | String
-| No
-| The commit ID for the source repository.
+| The commit SHA for the source repository.
 
 | `commit-url`
 | String
-| No
-| The commit URL from the source
+| The commit URL from the source repository. Returns Unavailable if the commit is from a local merge.
 
 | `ref`
 | String
-| No
-| The ref or branch for the checked-out repository. Leave empty when in a detached-head state, commiting, or merging.
+| The ref or branch for the checked-out repository.  Returns empty when in a detached-head state or if the commit is from a local merge. 
 
 | `repository-url`
 | String
-|No
-| The base URL for the instance to clone. Set to `unavailable` for local a commit or merge.
+| The URL of the cloned repository.
+
+|===
 
 
 |===
