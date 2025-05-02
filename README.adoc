@@ -154,9 +154,6 @@ Default is `basic`.
 
 |===
 
-
-|===
-
 == Usage example
 
 In the YAML file, all values are required, unless otherwise noted. Default values are included in the example YAML file below. Refer to the notes for options and details.
