@@ -1,7 +1,7 @@
 ARG UID=1234
 ARG GID=1234
 
-FROM golang:1.23.1-alpine3.20 AS build
+FROM golang:1.23.9-alpine3.22 AS build
 
 ARG UID
 ARG GID
