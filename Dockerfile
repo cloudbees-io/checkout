@@ -1,5 +1,5 @@
-
-FROM golang:1.23.9-alpine3.22 AS build
+#syntax=docker/dockerfile:1
+FROM golang:1.24.6-alpine3.22 AS build
 
 WORKDIR /work
 
@@ -11,7 +11,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags '-w -extldflags "-static"' -o /usr/local/bin/checkout main.go
 
-FROM alpine:3.21
+FROM alpine:3.22
 
 RUN apk fix && \
     apk --no-cache --update add git git-lfs gpg less openssh patch && \
