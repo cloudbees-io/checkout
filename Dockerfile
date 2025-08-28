@@ -15,12 +15,9 @@ FROM alpine:3.22
 
 RUN apk fix && \
     apk --no-cache --update add git git-lfs gpg less openssh patch && \
-    git lfs install && \
-    addgroup -g 1000 nonroot && \
-    adduser -u 1000 -G nonroot -D nonroot
-USER nonroot
+    git lfs install
 
-COPY --chown=nonroot:nonroot --from=build /usr/local/bin/checkout /usr/local/bin/checkout
+COPY --from=build /usr/local/bin/checkout /usr/local/bin/checkout
 
 WORKDIR /cloudbees/home
 
