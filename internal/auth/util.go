@@ -17,6 +17,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/cloudbees-io/checkout/internal/core"
 	"github.com/cloudbees-io/checkout/internal/git"
 	"github.com/cloudbees-io/checkout/internal/helper"
 
@@ -107,48 +108,76 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 		}
 	}
 
-	helperCommand, cleaner, err := helper.InstallHelperFor(serverURL, token.options())
+	path, err := exec.LookPath("git-credential-cloudbees")
 	if err != nil {
-		return cleaner, "", err
-	}
+		// we are running on an older version of platform, fall-back to the built in helper
+		core.Debug("Could not find git-credential-cloudbees on the path, falling back to old-style helper")
 
-	oldHelper, _ := cli.GetConfig(globalConfig, "credential.helper")
-	oldUseHttpPath, _ := cli.GetConfig(globalConfig, "credential.useHttpPath")
+		helperCommand, cleaner, err := helper.InstallHelperFor(serverURL, token.options())
+		if err != nil {
+			return cleaner, "", err
+		}
 
-	fullCleaner := func() error {
-		var errs []error
-		if oldHelper == "" {
-			if _, err := cli.UnsetConfig(globalConfig, "credential.helper"); err != nil {
+		oldHelper, _ := cli.GetConfig(globalConfig, "credential.helper")
+		oldUseHttpPath, _ := cli.GetConfig(globalConfig, "credential.useHttpPath")
+
+		fullCleaner := func() error {
+			var errs []error
+			if oldHelper == "" {
+				if _, err := cli.UnsetConfig(globalConfig, "credential.helper"); err != nil {
+					errs = append(errs, err)
+				}
+			} else if err := cli.SetConfigStr(globalConfig, "credential.helper", oldHelper); err != nil {
 				errs = append(errs, err)
 			}
-		} else if err := cli.SetConfigStr(globalConfig, "credential.helper", oldHelper); err != nil {
-			errs = append(errs, err)
-		}
-		useHttpPath, _ := strconv.ParseBool(oldUseHttpPath)
-		if oldUseHttpPath == "" {
-			if _, err := cli.UnsetConfig(globalConfig, "credential.useHttpPath"); err != nil {
+			useHttpPath, _ := strconv.ParseBool(oldUseHttpPath)
+			if oldUseHttpPath == "" {
+				if _, err := cli.UnsetConfig(globalConfig, "credential.useHttpPath"); err != nil {
+					errs = append(errs, err)
+				}
+			} else if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", useHttpPath); err != nil {
 				errs = append(errs, err)
 			}
-		} else if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", useHttpPath); err != nil {
-			errs = append(errs, err)
+			if err := cleaner(); err != nil {
+				errs = append(errs, err)
+			}
+			if len(errs) > 0 {
+				return errors.Join(errs...)
+			}
+			return nil
 		}
-		if err := cleaner(); err != nil {
-			errs = append(errs, err)
+
+		if err := cli.SetConfigStr(globalConfig, "credential.helper", helperCommand); err != nil {
+			return fullCleaner, "", err
 		}
-		if len(errs) > 0 {
-			return errors.Join(errs...)
+		if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", true); err != nil {
+			return fullCleaner, "", err
 		}
-		return nil
+
+		return fullCleaner, helperCommand, nil
 	}
 
-	if err := cli.SetConfigStr(globalConfig, "credential.helper", helperCommand); err != nil {
-		return fullCleaner, "", err
-	}
-	if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", true); err != nil {
-		return fullCleaner, "", err
+	core.Debug("Found git-credential-cloudbees on the path at %s", path)
+
+	const tokenEnv = "CLOUDBEES_API_TOKEN"
+
+	cmd := exec.Command(path,
+		"init",
+		"--cloudbees-api-token-env-var", tokenEnv,
+		"--cloudbees-api-url", token.ApiURL,
+		"--git-config-path", configPath)
+
+	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%s", tokenEnv, token.ApiToken))
+
+	err = cmd.Wait()
+	if err != nil {
+		return noOpClean, "", err
 	}
 
-	return fullCleaner, helperCommand, nil
+	// extract the configured helper command in case it is needed for merge commit regeneration
+	helperCommand, _ := cli.GetConfig(globalConfig, "credential.helper")
+
+	return noOpClean, helperCommand, nil
 }
 
 func ConfigureSubmoduleTokenAuth(cli *git.GitCLI, recursive bool, serverURL string, token string) error {
