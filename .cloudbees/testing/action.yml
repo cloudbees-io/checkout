@@ -94,13 +94,13 @@ outputs:
     description: "The clone URL of the repository"
   commit:
     value: ${{ steps.checkout.outputs.commit }}
-    description: "Commit ID from source repository"
+    description: "The commit ID from the source repository"
   commit-url:
     value: ${{ steps.checkout.outputs.commit-url }}
-    description: "Commit URL from source repository"
+    description: "The commit URL from the source repository"
   ref:
     value: ${{ steps.checkout.outputs.ref }}
-    description: "Ref or branch of the checked-out repository"
+    description: "The ref or branch of the checked-out repository"
 runs:
   using: composite
   steps:

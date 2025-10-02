@@ -165,7 +165,7 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 		"init",
 		"--cloudbees-api-token-env-var", tokenEnv,
 		"--cloudbees-api-url", token.ApiURL,
-		"--git-config-path", configPath)
+		"--git-config-file-path", configPath)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -174,12 +174,7 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%s", tokenEnv, token.ApiToken))
 
-	err = cmd.Start()
-	if err != nil {
-		return noOpClean, "", err
-	}
-
-	err = cmd.Wait()
+	err = cmd.Run()
 	if err != nil {
 		return noOpClean, "", err
 	}
