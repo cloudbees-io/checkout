@@ -159,10 +159,18 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 
 	core.Debug("Found git-credential-cloudbees on the path at %s", path)
 
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return noOpClean, "", err
+	}
+
+	helperConfig := filepath.Join(homeDir, ".git-credential-cloudbees-config")
+
 	const tokenEnv = "CLOUDBEES_API_TOKEN"
 
 	cmd := exec.Command(path,
 		"init",
+		"--config", helperConfig,
 		"--cloudbees-api-token-env-var", tokenEnv,
 		"--cloudbees-api-url", token.ApiURL,
 		"--git-config-file-path", configPath)
@@ -179,10 +187,7 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 		return noOpClean, "", err
 	}
 
-	// extract the configured helper command in case it is needed for merge commit regeneration
-	helperCommand, _ := cli.GetConfig(globalConfig, "credential.helper")
-
-	return noOpClean, helperCommand, nil
+	return noOpClean, fmt.Sprintf("%s helper --config %s", shellescape.Quote(path), shellescape.Quote(helperConfig)), nil
 }
 
 func ConfigureSubmoduleTokenAuth(cli *git.GitCLI, recursive bool, serverURL string, token string) error {
