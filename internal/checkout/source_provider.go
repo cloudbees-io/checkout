@@ -321,7 +321,7 @@ func (cfg *Config) writeActionOutputs(cli *git.GitCLI) error {
 		case auth.BitbucketDatacenterProvider:
 			name := strings.Split(cfg.Repository, "/")
 			if len(name) == 2 {
-				fullCommitUrl = cfg.providerURL + "projects/" + name[0] + "/repos/" + name[1] + "/commits/" + commitId
+				fullCommitUrl = cfg.BitbucketServerURL + "projects/" + name[0] + "/repos/" + name[1] + "/commits/" + commitId
 			}
 		}
 	}
