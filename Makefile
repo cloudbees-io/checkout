@@ -26,6 +26,7 @@ verify: format sync test ## Verifies that the committed code is formatted, all f
 	  echo "$(ANSI_BOLD)✅ Git workspace is clean$(ANSI_RESET)" ; \
 	else \
 	  echo "$(ANSI_BOLD)❌ Git workspace is dirty$(ANSI_RESET)" ; \
+	  git status --porcelain ; \
 	  exit 1 ; \
 	fi
 
