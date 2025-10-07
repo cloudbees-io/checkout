@@ -32,6 +32,16 @@ func TestIsSSHURL(t *testing.T) {
 			input: "git@git.repos.example.com:some-org_x/some-repo_x.git",
 			want:  true,
 		},
+		{
+			name:  "HTTP URL",
+			input: "https://github.com/org1/repo1",
+			want:  false,
+		},
+		{
+			name:  "short form syntax",
+			input: "org1/repo1",
+			want:  false,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := isSSHURL(tc.input)
