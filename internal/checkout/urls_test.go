@@ -28,13 +28,28 @@ func TestIsSSHURL(t *testing.T) {
 			want:  true,
 		},
 		{
-			name:  "number",
-			input: "git@example.com:1234/org1/repo1",
+			name:  "with protocol",
+			input: "ssh://git@example.com:1234/org1/repo1",
 			want:  true,
 		},
 		{
-			name:  "subdomain",
-			input: "git@git.my-repos_x.example.com:1234/some-org_x/some-repo_x.git",
+			name:  "with subdomain",
+			input: "git@git.my-repos_x.example.com:org1/repo1",
+			want:  true,
+		},
+		{
+			name:  "with home dir",
+			input: "git@git.my-repos_x.example.com:~/repos/org1/repo1",
+			want:  true,
+		},
+		{
+			name:  "gerrit url (without user)",
+			input: "ssh://gerrithost:29418/RecipeBook.git",
+			want:  true,
+		},
+		{
+			name:  "all syntax features",
+			input: "ssh://git@git.my-repos_x.example.com:1234/some-org_x/some-repo_x.git",
 			want:  true,
 		},
 		{
