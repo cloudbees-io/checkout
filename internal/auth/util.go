@@ -13,13 +13,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/cloudbees-io/checkout/internal/core"
 	"github.com/cloudbees-io/checkout/internal/git"
-	"github.com/cloudbees-io/checkout/internal/helper"
 
 	"al.essio.dev/pkg/shellescape"
 )
@@ -113,48 +111,7 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 		// we are running on an older version of platform, fall-back to the built in helper
 		core.Debug("Could not find git-credential-cloudbees on the path, falling back to old-style helper")
 
-		helperCommand, cleaner, err := helper.InstallHelperFor(serverURL, token.options())
-		if err != nil {
-			return cleaner, "", err
-		}
-
-		oldHelper, _ := cli.GetConfig(globalConfig, "credential.helper")
-		oldUseHttpPath, _ := cli.GetConfig(globalConfig, "credential.useHttpPath")
-
-		fullCleaner := func() error {
-			var errs []error
-			if oldHelper == "" {
-				if _, err := cli.UnsetConfig(globalConfig, "credential.helper"); err != nil {
-					errs = append(errs, err)
-				}
-			} else if err := cli.SetConfigStr(globalConfig, "credential.helper", oldHelper); err != nil {
-				errs = append(errs, err)
-			}
-			useHttpPath, _ := strconv.ParseBool(oldUseHttpPath)
-			if oldUseHttpPath == "" {
-				if _, err := cli.UnsetConfig(globalConfig, "credential.useHttpPath"); err != nil {
-					errs = append(errs, err)
-				}
-			} else if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", useHttpPath); err != nil {
-				errs = append(errs, err)
-			}
-			if err := cleaner(); err != nil {
-				errs = append(errs, err)
-			}
-			if len(errs) > 0 {
-				return errors.Join(errs...)
-			}
-			return nil
-		}
-
-		if err := cli.SetConfigStr(globalConfig, "credential.helper", helperCommand); err != nil {
-			return fullCleaner, "", err
-		}
-		if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", true); err != nil {
-			return fullCleaner, "", err
-		}
-
-		return fullCleaner, helperCommand, nil
+		return noOpClean, "", err
 	}
 
 	core.Debug("Found git-credential-cloudbees on the path at %s", path)

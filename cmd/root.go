@@ -48,8 +48,6 @@ func init() {
 	cmd.Flags().StringVar(&cfg.GithubServerURL, "github-server-url", "", "The base URL for the GitHub instance that you are trying to clone from")
 	cmd.Flags().StringVar(&cfg.BitbucketServerURL, "bitbucket-server-url", "", "The base URL for the Bitbucket instance that you are trying to clone from")
 	cmd.Flags().StringVar(&cfg.GitlabServerURL, "gitlab-server-url", "", "The base URL for the GitLab instance that you are trying to clone from")
-
-	cmd.AddCommand(helperCmd)
 }
 
 func cliContext() context.Context {
