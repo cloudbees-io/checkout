@@ -34,7 +34,7 @@ func TestIsSSHURL(t *testing.T) {
 		},
 		{
 			name:  "subdomain",
-			input: "git@git.repos.example.com:1234/some-org_x/some-repo_x.git",
+			input: "git@git.my-repos_x.example.com:1234/some-org_x/some-repo_x.git",
 			want:  true,
 		},
 		{
