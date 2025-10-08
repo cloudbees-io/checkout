@@ -64,6 +64,7 @@ Default is `1`.
 | No
 
 |  The SCM provider hosting the repository. For example GitHub, BitBucket, or custom. The default is `${{ cloudbees.scm.provider }}`.
+When specifying an SSH URL within the repository input, the provider must be set to 'custom'.
 
 | `ref`
 | String
