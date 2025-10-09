@@ -4,10 +4,14 @@ name: 'Checkout'
 description: 'Checkout a Git repository at a particular version'
 inputs:
   provider:
-    description: 'SCM provider that is hosting the repository. For example github, bitbucket, gitlab or custom'
+    description: |
+      SCM provider that is hosting the repository. For example github, bitbucket, gitlab or custom.
+      When specifying an SSH URL within the repository input, the provider must be set to 'custom'.
     default: "${{ cloudbees.scm.provider }}"
   repository:
-    description: 'Repository name with owner. For example, actions/checkout. Alternatively if provider is custom then this is the clone URL of the repository'
+    description: |
+      Repository URL or name with owner.
+      For example, cloudbees-io/checkout or https://github.com/cloudbees-io/checkout.
     default: "${{ cloudbees.scm.repository }}"
   ref:
     description: >

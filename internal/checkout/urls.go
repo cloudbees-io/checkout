@@ -3,9 +3,16 @@ package checkout
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 
 	"github.com/cloudbees-io/checkout/internal/auth"
 )
+
+var sshURLRegex = regexp.MustCompile(`^(ssh://)?([a-zA-Z][-a-zA-Z0-9_]*@)?[a-z0-9][-a-z0-9_\.]*:(/?[\w_\-\.~]+)*$`)
+
+func isSSHURL(urlStr string) bool {
+	return sshURLRegex.MatchString(urlStr)
+}
 
 func (cfg *Config) serverURL() string {
 	p := cfg.Provider

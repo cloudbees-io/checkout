@@ -2,7 +2,7 @@
     "id": "github.com|00ea9422-5ec9-11ee-9135-d356b0e26c1e",
     "type": "PUSH",
     "provider": "github",
-    "providerURL": "https://github.com/fakeorg/fakerepo",
+    "providerURL": "https://github.com",
     "repositoryUrl": "https://github.com/fakeorg/fakerepo.git",
     "repository": "fakeorg/fakerepo",
     "branch": "main",

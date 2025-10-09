@@ -23,6 +23,7 @@ import (
 type Config struct {
 	Provider                     string
 	Repository                   string
+	repositoryCloneURL           string
 	Ref                          string
 	CloudBeesApiToken            string
 	CloudBeesApiURL              string
@@ -85,12 +86,14 @@ func (cfg *Config) validate() error {
 	core.Debug("providerURL = %s", cfg.providerURL)
 	core.Debug("token auth type = %s", cfg.TokenAuthtype)
 
-	// Repository
-	if cfg.Provider != auth.CustomProvider {
-		splitRepository := strings.Split(cfg.Repository, "/")
-		if len(splitRepository) != 2 || splitRepository[0] == "" || splitRepository[1] == "" {
-			return fmt.Errorf("invalid repository '%s', expected format {owner}/{repo}", cfg.Repository)
-		}
+	err = cfg.initDefaultProviderURL()
+	if err != nil {
+		return err
+	}
+
+	err = cfg.normalizeRepositoryURL()
+	if err != nil {
+		return err
 	}
 
 	// Repository Path
@@ -172,7 +175,11 @@ func (cfg *Config) validate() error {
 		cfg.githubWorkflowOrganizationId, _ = getStringFromMap(owner, "id")
 	}
 
-	// Determine the provider URL that the repository is being hosted from
+	return nil
+}
+
+// initDefaultProviderURL sets the default provider-specific serverURL if not specified
+func (cfg *Config) initDefaultProviderURL() error {
 	switch cfg.Provider {
 	case auth.GitHubProvider:
 		if cfg.GithubServerURL == "" {
@@ -220,14 +227,69 @@ func (cfg *Config) validate() error {
 	return nil
 }
 
+func (cfg *Config) normalizeRepositoryURL() error {
+	cfg.repositoryCloneURL = cfg.Repository
+
+	if isSSHURL(cfg.Repository) {
+		// Handle SSH URL
+		if cfg.SSHKey == "" {
+			return errors.New("must also specify the ssh-key input when specifying an SSH URL as repository input")
+		}
+		if cfg.Provider != auth.CustomProvider {
+			return errors.New("provider input must be set to 'custom' when specifying an SSH URL within the repository input")
+		}
+	} else {
+		// Handle HTTP URL
+		repoURL, err := url.Parse(cfg.Repository)
+		if err != nil {
+			return fmt.Errorf("invalid repository %q: %w", cfg.Repository, err)
+		}
+
+		if repoURL.IsAbs() && repoURL.Host != "" {
+			serverURL := cfg.serverURL()
+
+			if !strings.HasPrefix(cfg.Repository, serverURL+"/") {
+				return fmt.Errorf("repository url (%s) must start with the server URL (%s) of the provider (%s)", cfg.Repository, serverURL, cfg.Provider)
+			}
+
+			// Add .git suffix to repository URL in case of a known SCM provider.
+			// This is to align with the old logic implemented in fetchURL().
+			// We cannot add the .git suffix to every clone URL since some SCM providers don't support it (e.g. Azure DevOps).
+			switch cfg.Provider {
+			case auth.GitHubProvider,
+				auth.BitbucketProvider,
+				auth.BitbucketDatacenterProvider,
+				auth.GitLabProvider:
+				if !strings.HasSuffix(cfg.Repository, ".git") {
+					cfg.repositoryCloneURL = fmt.Sprintf("%s.git", cfg.Repository)
+				}
+			}
+		} else {
+			if cfg.Provider == auth.CustomProvider {
+				return errors.New("short form repository URL provided but an absolute URL is required when using a custom SCM provider")
+			}
+
+			splitRepository := strings.Split(repoURL.Path, "/")
+			if len(splitRepository) != 2 || splitRepository[0] == "" || splitRepository[1] == "" {
+				return fmt.Errorf("invalid repository '%s', expected format {owner}/{repo} or {serverURL}/{repoPath}", cfg.Repository)
+			}
+
+			// Absolutize the short form URL
+			cfg.repositoryCloneURL, err = cfg.fetchURL(cfg.SSHKey != "")
+			if err != nil {
+				return fmt.Errorf("absolutize repository url: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (cfg *Config) writeActionOutputs(cli *git.GitCLI) error {
 	//Output commit details
 	outDir := os.Getenv("CLOUDBEES_OUTPUTS")
-	fullUrl, err := cfg.fetchURL(cfg.SSHKey != "")
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(filepath.Join(outDir, "repository-url"), []byte(fullUrl), 0640)
+	fullUrl := cfg.repositoryCloneURL
+	err := os.WriteFile(filepath.Join(outDir, "repository-url"), []byte(fullUrl), 0640)
 	if err != nil {
 		return err
 	}
@@ -260,9 +322,13 @@ func (cfg *Config) writeActionOutputs(cli *git.GitCLI) error {
 		case auth.BitbucketProvider:
 			fullCommitUrl = fullUrl + "/commits/" + commitId
 		case auth.BitbucketDatacenterProvider:
-			name := strings.Split(cfg.Repository, "/")
-			if len(name) == 2 {
-				fullCommitUrl = cfg.providerURL + "projects/" + name[0] + "/repos/" + name[1] + "/commits/" + commitId
+			repo := cfg.Repository
+			if strings.HasSuffix(repo, ".git") {
+				repo = repo[:len(repo)-len(".git")]
+			}
+			name := strings.Split(repo, "/")
+			if len(name) >= 2 {
+				fullCommitUrl = cfg.BitbucketServerURL + "/projects/" + name[len(name)-2] + "/repos/" + name[len(name)-1] + "/commits/" + commitId
 			}
 		}
 	}
@@ -289,7 +355,7 @@ func (cfg *Config) ensureScmPathForBitbucketDatacenterUrl() error {
 
 	p, err := url.Parse(cfg.BitbucketServerURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("bitbucket-server-url: %w", err)
 	}
 
 	if strings.HasSuffix(p.Path, "/scm") || strings.HasSuffix(p.Path, "/scm/") {
@@ -327,10 +393,8 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		return err
 	}
 
-	repositoryURL, err := cfg.fetchURL(useSSH)
-	if err != nil {
-		return err
-	}
+	repositoryURL := cfg.repositoryCloneURL
+
 	fmt.Printf("Syncing Repository: %s\n", repositoryURL)
 
 	// Remove conflicting file path
@@ -859,6 +923,7 @@ func (cfg *Config) isWorkflowRepository(eventContext map[string]interface{}) boo
 	core.Debug("ctx.repository = %s", ctxRepository)
 	core.Debug("cfg.provider = %s", cfg.Provider)
 	core.Debug("cfg.repository = %s", cfg.Repository)
+	core.Debug("cfg.repositoryCloneURL = %s", cfg.repositoryCloneURL)
 
 	return haveP && cfg.Provider == ctxProvider && haveR && cfg.Repository == ctxRepository
 }

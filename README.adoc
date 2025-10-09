@@ -64,6 +64,7 @@ Default is `1`.
 | No
 
 |  The SCM provider hosting the repository. For example GitHub, BitBucket, or custom. The default is `${{ cloudbees.scm.provider }}`.
+When specifying an SSH URL within the repository input, the provider must be set to 'custom'.
 
 | `ref`
 | String
@@ -74,7 +75,9 @@ The action uses the default branch, except when checking out the triggering work
 | `repository`
 | String
 | No
-| The repository name with owner. For example, `actions/checkout`. Default value is `${{ cloudbees.scm.repository }}`.
+| Repository URL or name with owner.
+For example, https://github.com/cloudbees-io/checkout or cloudbees-io/checkout.
+Default value is `${{ cloudbees.scm.repository }}`.
 
 | `set-safe-directory`
 | Boolean
