@@ -328,7 +328,7 @@ func (cfg *Config) writeActionOutputs(cli *git.GitCLI) error {
 			}
 			name := strings.Split(repo, "/")
 			if len(name) >= 2 {
-				fullCommitUrl = cfg.BitbucketServerURL + "projects/" + name[len(name)-2] + "/repos/" + name[len(name)-1] + "/commits/" + commitId
+				fullCommitUrl = cfg.BitbucketServerURL + "/projects/" + name[len(name)-2] + "/repos/" + name[len(name)-1] + "/commits/" + commitId
 			}
 		}
 	}
