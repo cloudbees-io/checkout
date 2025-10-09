@@ -322,9 +322,13 @@ func (cfg *Config) writeActionOutputs(cli *git.GitCLI) error {
 		case auth.BitbucketProvider:
 			fullCommitUrl = fullUrl + "/commits/" + commitId
 		case auth.BitbucketDatacenterProvider:
-			name := strings.Split(cfg.Repository, "/")
-			if len(name) == 2 {
-				fullCommitUrl = cfg.BitbucketServerURL + "projects/" + name[0] + "/repos/" + name[1] + "/commits/" + commitId
+			repo := cfg.Repository
+			if strings.HasSuffix(repo, ".git") {
+				repo = repo[:len(repo)-len(".git")]
+			}
+			name := strings.Split(repo, "/")
+			if len(name) >= 2 {
+				fullCommitUrl = cfg.BitbucketServerURL + "projects/" + name[len(name)-2] + "/repos/" + name[len(name)-1] + "/commits/" + commitId
 			}
 		}
 	}
