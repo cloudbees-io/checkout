@@ -23,6 +23,7 @@ import (
 type Config struct {
 	Provider                     string
 	Repository                   string
+	repositoryCloneURL           string
 	Ref                          string
 	CloudBeesApiToken            string
 	CloudBeesApiURL              string
@@ -227,6 +228,8 @@ func (cfg *Config) initDefaultProviderURL() error {
 }
 
 func (cfg *Config) normalizeRepositoryURL() error {
+	cfg.repositoryCloneURL = cfg.Repository
+
 	if isSSHURL(cfg.Repository) {
 		// Handle SSH URL
 		if cfg.SSHKey == "" {
@@ -258,7 +261,7 @@ func (cfg *Config) normalizeRepositoryURL() error {
 				auth.BitbucketDatacenterProvider,
 				auth.GitLabProvider:
 				if !strings.HasSuffix(cfg.Repository, ".git") {
-					cfg.Repository = fmt.Sprintf("%s.git", cfg.Repository)
+					cfg.repositoryCloneURL = fmt.Sprintf("%s.git", cfg.Repository)
 				}
 			}
 		} else {
@@ -272,7 +275,7 @@ func (cfg *Config) normalizeRepositoryURL() error {
 			}
 
 			// Absolutize the short form URL
-			cfg.Repository, err = cfg.fetchURL(cfg.SSHKey != "")
+			cfg.repositoryCloneURL, err = cfg.fetchURL(cfg.SSHKey != "")
 			if err != nil {
 				return fmt.Errorf("absolutize repository url: %w", err)
 			}
@@ -285,7 +288,7 @@ func (cfg *Config) normalizeRepositoryURL() error {
 func (cfg *Config) writeActionOutputs(cli *git.GitCLI) error {
 	//Output commit details
 	outDir := os.Getenv("CLOUDBEES_OUTPUTS")
-	fullUrl := cfg.Repository
+	fullUrl := cfg.repositoryCloneURL
 	err := os.WriteFile(filepath.Join(outDir, "repository-url"), []byte(fullUrl), 0640)
 	if err != nil {
 		return err
@@ -386,7 +389,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		return err
 	}
 
-	repositoryURL := cfg.Repository
+	repositoryURL := cfg.repositoryCloneURL
 
 	fmt.Printf("Syncing Repository: %s\n", repositoryURL)
 
@@ -916,6 +919,7 @@ func (cfg *Config) isWorkflowRepository(eventContext map[string]interface{}) boo
 	core.Debug("ctx.repository = %s", ctxRepository)
 	core.Debug("cfg.provider = %s", cfg.Provider)
 	core.Debug("cfg.repository = %s", cfg.Repository)
+	core.Debug("cfg.repositoryCloneURL = %s", cfg.repositoryCloneURL)
 
 	return haveP && cfg.Provider == ctxProvider && haveR && cfg.Repository == ctxRepository
 }
