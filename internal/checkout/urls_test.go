@@ -28,6 +28,21 @@ func TestIsSSHURL(t *testing.T) {
 			want:  true,
 		},
 		{
+			name:  "with port",
+			input: "git@example.com:1234/org1/repo1",
+			want:  true,
+		},
+		{
+			name:  "with upper case repo name",
+			input: "git@example.com:org1/Repo1",
+			want:  true,
+		},
+		{
+			name:  "with upper case user",
+			input: "GIT@example.com:org1/repo1",
+			want:  true,
+		},
+		{
 			name:  "with protocol",
 			input: "ssh://git@example.com:1234/org1/repo1",
 			want:  true,
