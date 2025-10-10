@@ -213,7 +213,7 @@ func TestConfigValidate(t *testing.T) {
 			},
 			want: Config{
 				Repository:         "git@github.com:mgoltzsche/podman-static.git",
-				repositoryCloneURL: "git@github.com:mgoltzsche/podman-static.git",
+				repositoryCloneURL: "ssh://git@github.com/mgoltzsche/podman-static.git",
 				Provider:           "custom",
 				Submodules:         "false",
 				Token:              "fake-token",

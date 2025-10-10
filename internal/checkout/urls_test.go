@@ -28,11 +28,6 @@ func TestIsSSHURL(t *testing.T) {
 			want:  true,
 		},
 		{
-			name:  "with port",
-			input: "git@example.com:1234/org1/repo1",
-			want:  true,
-		},
-		{
 			name:  "with upper case repo name",
 			input: "git@example.com:org1/Repo1",
 			want:  true,
@@ -43,8 +38,18 @@ func TestIsSSHURL(t *testing.T) {
 			want:  true,
 		},
 		{
+			name:  "with port",
+			input: "git@example.com:1234/org1/repo1",
+			want:  true,
+		},
+		{
 			name:  "with protocol",
 			input: "ssh://git@example.com:1234/org1/repo1",
+			want:  true,
+		},
+		{
+			name:  "with protocol but without port",
+			input: "ssh://git@example.com/org1/repo1",
 			want:  true,
 		},
 		{
@@ -80,6 +85,40 @@ func TestIsSSHURL(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := isSSHURL(tc.input)
+			require.Equal(t, tc.want, actual)
+		})
+	}
+}
+
+func TestNormalizeSSHURL(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "GitHub SSH URL",
+			input: "git@github.com:org1/repo1",
+			want:  "ssh://git@github.com/org1/repo1",
+		},
+		{
+			name:  "Bitbucket SSH URL",
+			input: "git@bitbucket.org:org1/repo1.git",
+			want:  "ssh://git@bitbucket.org/org1/repo1.git",
+		},
+		{
+			name:  "Normalized SSH URL",
+			input: "ssh://example.com/org1/repo1.git",
+			want:  "ssh://example.com/org1/repo1.git",
+		},
+		{
+			name:  "HTTP URL",
+			input: "https://github.com/org1/repo1.git",
+			want:  "https://github.com/org1/repo1.git",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := normalizeSSHURL(tc.input)
 			require.Equal(t, tc.want, actual)
 		})
 	}

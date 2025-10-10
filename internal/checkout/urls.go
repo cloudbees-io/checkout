@@ -4,14 +4,37 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/cloudbees-io/checkout/internal/auth"
 )
 
-var sshURLRegex = regexp.MustCompile(`^(ssh://)?([a-zA-Z][-a-zA-Z0-9_]*@)?[a-z0-9][-a-z0-9_\.]*:(/?[\w_\-\.~]+)*$`)
+const userAndHostRegex = `([a-zA-Z][-a-zA-Z0-9_]*@)?[a-z0-9][-a-z0-9_\.]*`
+
+var sshURLRegex = regexp.MustCompile(fmt.Sprintf(`^ssh://%[1]s(:|/)(/?[\w_\-\.~]+)*$|^%[1]s:/?[\w_\-\.~]+(/?[\w_\-\.~]+)*$`, userAndHostRegex))
+var sshURLRegexWithPort = regexp.MustCompile(fmt.Sprintf(`^ssh://%[1]s:[^0-9]+`, userAndHostRegex))
 
 func isSSHURL(urlStr string) bool {
 	return sshURLRegex.MatchString(urlStr)
+}
+
+func normalizeSSHURL(urlStr string) string {
+	if !isSSHURL(urlStr) {
+		return urlStr
+	}
+
+	if !strings.HasPrefix(urlStr, "ssh://") {
+		urlStr = fmt.Sprintf("ssh://%s", urlStr)
+	}
+
+	if sshURLRegexWithPort.MatchString(urlStr) {
+		lastColonPos := strings.LastIndex(urlStr, ":")
+		if lastColonPos > -1 {
+			urlStr = fmt.Sprintf("%s/%s", urlStr[:lastColonPos], strings.TrimLeft(urlStr[lastColonPos+1:], "/"))
+		}
+	}
+
+	return urlStr
 }
 
 func (cfg *Config) serverURL() string {

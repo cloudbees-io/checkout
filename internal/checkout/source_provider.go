@@ -238,6 +238,8 @@ func (cfg *Config) normalizeRepositoryURL() error {
 		if cfg.Provider != auth.CustomProvider {
 			return errors.New("provider input must be set to 'custom' when specifying an SSH URL within the repository input")
 		}
+
+		cfg.repositoryCloneURL = normalizeSSHURL(cfg.Repository)
 	} else {
 		// Handle HTTP URL
 		repoURL, err := url.Parse(cfg.Repository)
