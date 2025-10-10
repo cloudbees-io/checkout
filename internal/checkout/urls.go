@@ -11,11 +11,15 @@ import (
 
 const userAndHostRegex = `([a-zA-Z][-a-zA-Z0-9_]*@)?[a-z0-9][-a-z0-9_\.]*`
 
-var sshURLRegex = regexp.MustCompile(fmt.Sprintf(`^ssh://%[1]s(:|/)(/?[\w_\-\.~]+)*$|^%[1]s:/?[\w_\-\.~]+(/?[\w_\-\.~]+)*$`, userAndHostRegex))
-var sshURLRegexWithPort = regexp.MustCompile(fmt.Sprintf(`^ssh://%[1]s:[^0-9]+`, userAndHostRegex))
+// Matches SSH URLs in the format: ssh://user@host[:port]/path
+var sshURLRegexScheme = regexp.MustCompile(fmt.Sprintf(`^ssh://%s(:|/)(/?[\w_\-\.~]+)*$`, userAndHostRegex))
+
+// Matches SSH URLs in the format: user@host:path
+var sshURLRegexScp = regexp.MustCompile(fmt.Sprintf(`^%s:/?[\w_\-\.~]+(/?[\w_\-\.~]+)*$`, userAndHostRegex))
+var sshURLRegexWithPort = regexp.MustCompile(fmt.Sprintf(`^ssh://%s:[^0-9]+`, userAndHostRegex))
 
 func isSSHURL(urlStr string) bool {
-	return sshURLRegex.MatchString(urlStr)
+	return sshURLRegexScheme.MatchString(urlStr) || sshURLRegexScp.MatchString(urlStr)
 }
 
 func normalizeSSHURL(urlStr string) string {
@@ -28,6 +32,8 @@ func normalizeSSHURL(urlStr string) string {
 	}
 
 	if sshURLRegexWithPort.MatchString(urlStr) {
+		// Convert 'ssh://git@host:path' to 'ssh://git@host/path' format for normalization.
+		// This is since `git ls-remote --symref URL` doesn't accept the URL otherwise.
 		lastColonPos := strings.LastIndex(urlStr, ":")
 		if lastColonPos > -1 {
 			urlStr = fmt.Sprintf("%s/%s", urlStr[:lastColonPos], strings.TrimLeft(urlStr[lastColonPos+1:], "/"))
