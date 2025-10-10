@@ -203,6 +203,24 @@ func TestConfigValidate(t *testing.T) {
 			},
 		},
 		{
+			name: "long form custom SCM provider with port",
+			input: Config{
+				Repository: "https://example.com:8443/owner1/repo1.git",
+				Provider:   "custom",
+				Submodules: "false",
+				Token:      "fake-token",
+			},
+			want: Config{
+				Repository:         "https://example.com:8443/owner1/repo1.git",
+				repositoryCloneURL: "https://example.com:8443/owner1/repo1.git",
+				Provider:           "custom",
+				Submodules:         "false",
+				Token:              "fake-token",
+				Path:               ".",
+				providerURL:        "https://github.com", // comes from the mounted scm event - very odd in this case
+			},
+		},
+		{
 			name: "SSH repository URL",
 			input: Config{
 				Repository: "git@github.com:mgoltzsche/podman-static.git",
@@ -213,7 +231,7 @@ func TestConfigValidate(t *testing.T) {
 			},
 			want: Config{
 				Repository:         "git@github.com:mgoltzsche/podman-static.git",
-				repositoryCloneURL: "git@github.com:mgoltzsche/podman-static.git",
+				repositoryCloneURL: "ssh://git@github.com/mgoltzsche/podman-static.git",
 				Provider:           "custom",
 				Submodules:         "false",
 				Token:              "fake-token",

@@ -238,6 +238,8 @@ func (cfg *Config) normalizeRepositoryURL() error {
 		if cfg.Provider != auth.CustomProvider {
 			return errors.New("provider input must be set to 'custom' when specifying an SSH URL within the repository input")
 		}
+
+		cfg.repositoryCloneURL = normalizeSSHURL(cfg.Repository)
 	} else {
 		// Handle HTTP URL
 		repoURL, err := url.Parse(cfg.Repository)
@@ -248,7 +250,7 @@ func (cfg *Config) normalizeRepositoryURL() error {
 		if repoURL.IsAbs() && repoURL.Host != "" {
 			serverURL := cfg.serverURL()
 
-			if !strings.HasPrefix(cfg.Repository, serverURL+"/") {
+			if serverURL != "" && !strings.HasPrefix(cfg.Repository, serverURL+"/") {
 				return fmt.Errorf("repository url (%s) must start with the server URL (%s) of the provider (%s)", cfg.Repository, serverURL, cfg.Provider)
 			}
 
