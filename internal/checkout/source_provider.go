@@ -250,7 +250,7 @@ func (cfg *Config) normalizeRepositoryURL() error {
 		if repoURL.IsAbs() && repoURL.Host != "" {
 			serverURL := cfg.serverURL()
 
-			if !strings.HasPrefix(cfg.Repository, serverURL+"/") {
+			if serverURL != "" && !strings.HasPrefix(cfg.Repository, serverURL+"/") {
 				return fmt.Errorf("repository url (%s) must start with the server URL (%s) of the provider (%s)", cfg.Repository, serverURL, cfg.Provider)
 			}
 
