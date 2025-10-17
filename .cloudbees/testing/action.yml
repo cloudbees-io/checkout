@@ -3,16 +3,11 @@ kind: action
 name: 'Checkout'
 description: 'Checkout a Git repository at a particular version'
 inputs:
-  provider:
-    description: |
-      SCM provider that is hosting the repository. For example github, bitbucket, gitlab or custom.
-      When specifying an SSH URL within the repository input, the provider must be set to 'custom'.
-    default: "${{ cloudbees.scm.provider }}"
   repository:
     description: |
-      Repository URL or name with owner.
-      For example, cloudbees-io/checkout or https://github.com/cloudbees-io/checkout.
-    default: "${{ cloudbees.scm.repository }}"
+      Repository clone URL.
+      For example, https://github.com/cloudbees-io/checkout.
+    default: "${{ cloudbees.scm.repositoryUrl }}"
   ref:
     description: >
       The branch, tag or SHA to checkout. When checking out the repository that
@@ -25,18 +20,6 @@ inputs:
   cloudbees-api-url:
     description: The CloudBees API root URL to use for fetching SCM tokens
     default: "${{ cloudbees.api.url }}"
-  token:
-    description: >
-      Personal access token (PAT) used to fetch the repository. The PAT is configured
-      with the local git config, which enables your scripts to run authenticated git
-      commands. The post-job step removes the PAT.
-
-
-      We recommend using a service account with the least permissions necessary.
-      Also when generating a new PAT, select the least scopes necessary.
-  token-auth-type:
-    description: 'The auth type of the token being used. Supported values are `bearer` and `basic`'
-    default: "basic"
   ssh-key:
     description: >
       SSH key used to fetch the repository. The SSH key is configured with the local
@@ -82,15 +65,6 @@ inputs:
   set-safe-directory:
     description: Add repository path as safe.directory for Git global config by running `git config --global --add safe.directory <path>`
     default: "true"
-  github-server-url:
-    description: The base URL for the GitHub instance that you are trying to clone from, will use environment defaults (i.e. the GITHUB_SERVER_URL environment variable) to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://github.com or https://my-ghes-server.example.com
-    required: false
-  bitbucket-server-url:
-    description: The base URL for the Bitbucket instance that you are trying to clone from, will use environment defaults (i.e. the BITBUCKET_SERVER_URL environment variable) to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://bitbucket.org or https://my-bbdc-server.example.com
-    required: false
-  gitlab-server-url:
-    description: The base URL for the GitLab instance that you are trying to clone from, will use environment defaults (i.e. the GITLAB_SERVER_URL environment variable) to fetch from the same instance that the workflow is running from unless specified. Example URLs are https://gitlab.com or https://my-gl-server.example.com
-    required: false
 
 outputs:
   repository-url:
@@ -99,9 +73,6 @@ outputs:
   commit:
     value: ${{ steps.checkout.outputs.commit }}
     description: "The commit ID from the source repository"
-  commit-url:
-    value: ${{ steps.checkout.outputs.commit-url }}
-    description: "The commit URL from the source repository"
   ref:
     value: ${{ steps.checkout.outputs.ref }}
     description: "The ref or branch of the checked-out repository"
@@ -116,13 +87,10 @@ runs:
       shell: sh
       run: |
         checkout \
-          "--provider=${{ inputs.provider }}" \
           "--repository=${{ inputs.repository }}" \
           "--ref=${{ inputs.ref }}" \
           "--cloudbees-api-token=${{ inputs.cloudbees-api-token }}" \
           "--cloudbees-api-url=${{ inputs.cloudbees-api-url }}" \
-          "--token=${{ inputs.token }}" \
-          "--token-auth-type=${{ inputs.token-auth-type }}" \
           "--ssh-key=${{ inputs.ssh-key }}" \
           "--ssh-known-hosts=${{ inputs.ssh-known-hosts }}" \
           "--ssh-strict=${{ inputs.ssh-strict }}" \
@@ -132,7 +100,4 @@ runs:
           "--fetch-depth=${{ inputs.fetch-depth }}" \
           "--lfs=${{ inputs.lfs }}" \
           "--submodules=${{ inputs.submodules }}" \
-          "--set-safe-directory=${{ inputs.set-safe-directory }}" \
-          "--github-server-url=${{ inputs.github-server-url }}" \
-          "--bitbucket-server-url=${{ inputs.bitbucket-server-url }}" \
-          "--gitlab-server-url=${{ inputs.gitlab-server-url }}" \
+          "--set-safe-directory=${{ inputs.set-safe-directory }}"

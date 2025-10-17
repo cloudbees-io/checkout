@@ -26,13 +26,10 @@ func Execute() error {
 }
 
 func init() {
-	cmd.Flags().StringVar(&cfg.Provider, "provider", "", "SCM provider that is hosting the repository")
 	cmd.Flags().StringVar(&cfg.Repository, "repository", "", "Repository name with owner")
 	cmd.Flags().StringVar(&cfg.Ref, "ref", "", "The branch, tag or SHA to checkout")
 	cmd.Flags().StringVar(&cfg.CloudBeesApiToken, "cloudbees-api-token", "", "CloudBees API token used to fetch authentication")
 	cmd.Flags().StringVar(&cfg.CloudBeesApiURL, "cloudbees-api-url", "", "CloudBees API root URL to fetch authentication from")
-	cmd.Flags().StringVar(&cfg.Token, "token", "", "Personal access token (PAT) used to fetch the repository")
-	cmd.Flags().StringVar(&cfg.TokenAuthtype, "token-auth-type", "", "Auth type of the token, one of `basic` or `bearer`")
 	cmd.Flags().StringVar(&cfg.SSHKey, "ssh-key", "", "SSH key used to fetch the repository")
 	cmd.Flags().StringVar(&cfg.SSHKnownHosts, "ssh-known-hosts", "", "Known hosts in addition to the user and global host key database")
 	cmd.Flags().BoolVar(&cfg.SSHStrict, "ssh-strict", true, "Whether to perform strict host key checking")
@@ -45,9 +42,6 @@ func init() {
 	cmd.Flags().BoolVar(&cfg.Lfs, "lfs", false, "Whether to download Git-LFS files")
 	cmd.Flags().StringVar(&cfg.Submodules, "submodules", "false", "Whether to checkout submodules, one of `true`, `false`, or `recursive`")
 	cmd.Flags().BoolVar(&cfg.SetSafeDirectory, "set-safe-directory", true, "Add repository path as safe.directory for Git global config")
-	cmd.Flags().StringVar(&cfg.GithubServerURL, "github-server-url", "", "The base URL for the GitHub instance that you are trying to clone from")
-	cmd.Flags().StringVar(&cfg.BitbucketServerURL, "bitbucket-server-url", "", "The base URL for the Bitbucket instance that you are trying to clone from")
-	cmd.Flags().StringVar(&cfg.GitlabServerURL, "gitlab-server-url", "", "The base URL for the GitLab instance that you are trying to clone from")
 }
 
 func cliContext() context.Context {

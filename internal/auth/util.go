@@ -1,19 +1,14 @@
 package auth
 
 import (
-	"bytes"
 	"context"
 	_ "embed"
-	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"strings"
 	"text/template"
 
 	"github.com/cloudbees-io/checkout/internal/core"
@@ -43,54 +38,11 @@ func noOpClean() error {
 }
 
 type TokenAuth struct {
-	Provider      string
-	ScmToken      string
-	TokenAuthType string
-	ApiURL        string
-	ApiToken      string
+	ApiURL   string
+	ApiToken string
 }
 
-func (a *TokenAuth) providerUsername() string {
-	switch a.Provider {
-	case GitHubProvider:
-		// GHA checkout action uses this username
-		return "x-access-token"
-	case GitLabProvider:
-		// https://docs.gitlab.com/ee/user/project/settings/project_access_tokens.html
-		// Any non-blank value as a username
-		return "x-access-token"
-	case BitbucketProvider:
-		// this is what they suggest when you go through https://bitbucket.org/{org}/{repo}/admin/access-tokens
-		return "x-token-auth"
-	case CustomProvider:
-		return "x-access-token"
-	default:
-		return "git"
-	}
-}
-
-func (a *TokenAuth) options() map[string][]string {
-	options := make(map[string][]string)
-	options["username"] = []string{a.providerUsername()}
-	if a.ScmToken != "" {
-		encodedToken := base64.StdEncoding.EncodeToString([]byte(a.ScmToken))
-		switch strings.ToLower(a.TokenAuthType) {
-		case "basic":
-			options["password"] = []string{encodedToken}
-		case "bearer":
-			// https://github.com/cloudbees-io/checkout/blob/9986681fa9b267f4282399c4e55806af0ba97aa6/internal/helper/credential.go#L42
-			options["credential"] = []string{encodedToken}
-		default:
-			options["password"] = []string{encodedToken}
-		}
-	} else if a.ApiToken != "" && a.ApiURL != "" {
-		options["cloudBeesApiUrl"] = []string{a.ApiURL}
-		options["cloudBeesApiToken"] = []string{base64.StdEncoding.EncodeToString([]byte(a.ApiToken))}
-	}
-	return options
-}
-
-func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serverURL string, token TokenAuth) (func() error, string, error) {
+func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, token TokenAuth) (func() error, string, error) {
 	if configPath != "" && globalConfig {
 		return noOpClean, "", fmt.Errorf("unexpected ConfigureToken parameter combination")
 	}
@@ -108,9 +60,6 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 
 	path, err := exec.LookPath("git-credential-cloudbees")
 	if err != nil {
-		// we are running on an older version of platform, fall-back to the built in helper
-		core.Debug("Could not find git-credential-cloudbees on the path, falling back to old-style helper")
-
 		return noOpClean, "", err
 	}
 
@@ -145,67 +94,6 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 	}
 
 	return noOpClean, fmt.Sprintf("%s helper --config %s", shellescape.Quote(path), shellescape.Quote(helperConfig)), nil
-}
-
-func ConfigureSubmoduleTokenAuth(cli *git.GitCLI, recursive bool, serverURL string, token string) error {
-	u, err := url.Parse(serverURL)
-	if err != nil {
-		return err
-	}
-
-	var submoduleOutput string
-	_, err = exec.LookPath("git-credential-cloudbees")
-	if err != nil {
-		core.Debug("Could not find git-credential-cloudbees on the path, using token placeholder replacement for submodules")
-		key := fmt.Sprintf(tokenConfigKey, u.Scheme+"://"+u.Host)
-
-		submoduleOutput, err = cli.SubmoduleForeach(recursive, "sh", "-c",
-			fmt.Sprintf(`%s config --local '%s' '%s' && %s config --local --show-origin --name-only --get-regexp remote.origin.url`,
-				cli.Executable(), key, tokenPlaceholderConfigValue, cli.Executable()))
-		if err != nil {
-			return err
-		}
-	}
-
-	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(authTemplate, token)))
-
-	configPathRegex := regexp.MustCompile(`^file:([^\t]+)\tremote\.origin\.url$`)
-
-	for _, line := range strings.Split(submoduleOutput, "\n") {
-		matches := configPathRegex.FindStringSubmatch(line)
-		if matches == nil {
-			continue
-		}
-		configPath := matches[1]
-		if configPath != "" {
-			if !filepath.IsAbs(configPath) {
-				configPath = filepath.Join(cli.Cwd(), configPath)
-			}
-			if err := replaceTokenPlaceholder(configPath, auth); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func replaceTokenPlaceholder(configPath string, token string) error {
-	stat, err := os.Stat(configPath)
-	if err != nil {
-		return fmt.Errorf("could not find file '%s': %v", configPath, err)
-	}
-
-	content, err := os.ReadFile(configPath)
-	if err != nil {
-		return err
-	}
-
-	placeholdeReplacement := fmt.Sprintf(tokenConfigValue, token)
-
-	content = bytes.ReplaceAll(content, []byte(tokenPlaceholderConfigValue), []byte(placeholdeReplacement))
-
-	return os.WriteFile(configPath, content, stat.Mode())
 }
 
 func GenerateSSHKey(ctx context.Context, tempDir string, prefix string, inputKey string) (string, error) {

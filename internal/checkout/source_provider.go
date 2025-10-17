@@ -20,35 +20,29 @@ import (
 	"github.com/google/uuid"
 )
 
+const dotGitCloneURLSuffix = ".git"
+
 type Config struct {
-	Provider                     string
-	Repository                   string
-	repositoryCloneURL           string
-	Ref                          string
-	CloudBeesApiToken            string
-	CloudBeesApiURL              string
-	Token                        string
-	TokenAuthtype                string
-	SSHKey                       string
-	SSHKnownHosts                string
-	SSHStrict                    bool
-	PersistCredentials           bool
-	Path                         string
-	Clean                        bool
-	SparseCheckout               string
-	SparseCheckoutConeMode       bool
-	FetchDepth                   int
-	Lfs                          bool
-	Submodules                   string
-	SetSafeDirectory             bool
-	GithubServerURL              string
-	BitbucketServerURL           string
-	GitlabServerURL              string
-	Commit                       string
-	githubWorkflowOrganizationId string
-	eventContext                 map[string]interface{}
-	providerURL                  string
-	LocalMerge                   bool
+	Repository             string
+	repositoryCloneURL     string
+	Ref                    string
+	CloudBeesApiToken      string
+	CloudBeesApiURL        string
+	SSHKey                 string
+	SSHKnownHosts          string
+	SSHStrict              bool
+	PersistCredentials     bool
+	Path                   string
+	Clean                  bool
+	SparseCheckout         string
+	SparseCheckoutConeMode bool
+	FetchDepth             int
+	Lfs                    bool
+	Submodules             string
+	SetSafeDirectory       bool
+	Commit                 string
+	eventContext           map[string]interface{}
+	LocalMerge             bool
 }
 
 var shaRegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
@@ -72,26 +66,9 @@ func (cfg *Config) validate() error {
 		return err
 	}
 
-	// Provider
-	if cfg.Provider == "" {
-		cfg.Provider, _ = getStringFromMap(cfg.eventContext, "provider")
-	}
-	cfg.Provider = strings.TrimSpace(strings.ToLower(cfg.Provider))
-	if cfg.Provider == "" {
-		return fmt.Errorf("input required and not supplied: provider")
-	}
-	cfg.providerURL, _ = getStringFromMap(cfg.eventContext, "providerURL")
-	core.Debug("provider = %s", cfg.Provider)
 	core.Debug("repository = %s", cfg.Repository)
-	core.Debug("providerURL = %s", cfg.providerURL)
-	core.Debug("token auth type = %s", cfg.TokenAuthtype)
 
-	err = cfg.initDefaultProviderURL()
-	if err != nil {
-		return err
-	}
-
-	err = cfg.normalizeRepositoryURL()
+	cfg.repositoryCloneURL, err = normalizeRepositoryURL(cfg.Repository, cfg.SSHKey != "")
 	if err != nil {
 		return err
 	}
@@ -162,129 +139,43 @@ func (cfg *Config) validate() error {
 		return fmt.Errorf("unsupported submodules: '%s', expected true/false/recursive", cfg.Submodules)
 	}
 
-	// Auth token
-	if cfg.Token == "" && cfg.CloudBeesApiToken == "" && cfg.CloudBeesApiURL == "" && cfg.SSHKey == "" {
-		return fmt.Errorf("input required and not supplied: token")
-	}
-
-	// Workflow organization ID
-	if cfg.Provider == auth.GitHubProvider {
-		raw, _ := getMapFromMap(cfg.eventContext, "raw")
-		repo, _ := getMapFromMap(raw, "repository")
-		owner, _ := getMapFromMap(repo, "owner")
-		cfg.githubWorkflowOrganizationId, _ = getStringFromMap(owner, "id")
+	// Authentication
+	if cfg.CloudBeesApiToken == "" && cfg.CloudBeesApiURL == "" && cfg.SSHKey == "" {
+		return fmt.Errorf("no means of authentication specified. you need to specify either cloudbees-api-token and cloudbees-api-url or ssh-key")
 	}
 
 	return nil
 }
 
-// initDefaultProviderURL sets the default provider-specific serverURL if not specified
-func (cfg *Config) initDefaultProviderURL() error {
-	switch cfg.Provider {
-	case auth.GitHubProvider:
-		if cfg.GithubServerURL == "" {
-			cfg.GithubServerURL = os.Getenv("GITHUB_SERVER_URL")
-		}
-		if cfg.GithubServerURL == "" {
-			cfg.GithubServerURL = "https://github.com"
-		}
-		core.Debug("GitHub Host URL = %s", cfg.GithubServerURL)
-	case auth.GitLabProvider:
-		if cfg.GitlabServerURL == "" {
-			cfg.GitlabServerURL = os.Getenv("GITLAB_SERVER_URL")
-		}
-		if cfg.GitlabServerURL == "" {
-			cfg.GitlabServerURL = "https://gitlab.com"
-		}
-		core.Debug("GitLab Host URL = %s", cfg.GitlabServerURL)
-	case auth.BitbucketProvider:
-		if cfg.BitbucketServerURL == "" {
-			cfg.BitbucketServerURL = os.Getenv("BITBUCKET_SERVER_URL")
-		}
-		if cfg.BitbucketServerURL == "" {
-			cfg.BitbucketServerURL = "https://bitbucket.org"
-		}
-		core.Debug("Bitbucket Host URL = %s", cfg.BitbucketServerURL)
-	case auth.BitbucketDatacenterProvider:
-		if cfg.BitbucketServerURL == "" {
-			cfg.BitbucketServerURL = os.Getenv("BITBUCKET_SERVER_URL")
-		}
-		if cfg.BitbucketServerURL == "" {
-			if cfg.providerURL != "" {
-				cfg.BitbucketServerURL = cfg.providerURL
-			} else {
-				return fmt.Errorf("missing Bitbucket Server URL")
-			}
-		}
-
-		if err := cfg.ensureScmPathForBitbucketDatacenterUrl(); err != nil {
-			return err
-		}
-
-		core.Debug("Bitbucket Host URL = %s", cfg.BitbucketServerURL)
-	}
-
-	return nil
-}
-
-func (cfg *Config) normalizeRepositoryURL() error {
-	cfg.repositoryCloneURL = cfg.Repository
-
-	if isSSHURL(cfg.Repository) {
+func normalizeRepositoryURL(repoURL string, ssh bool) (string, error) {
+	if isSSHURL(repoURL) {
 		// Handle SSH URL
-		if cfg.SSHKey == "" {
-			return errors.New("must also specify the ssh-key input when specifying an SSH URL as repository input")
-		}
-		if cfg.Provider != auth.CustomProvider {
-			return errors.New("provider input must be set to 'custom' when specifying an SSH URL within the repository input")
+		if !ssh {
+			return "", errors.New("must also specify the ssh-key input when specifying an SSH URL as repository input")
 		}
 
-		cfg.repositoryCloneURL = normalizeSSHURL(cfg.Repository)
+		repoURL = normalizeSSHURL(repoURL)
 	} else {
 		// Handle HTTP URL
-		repoURL, err := url.Parse(cfg.Repository)
-		if err != nil {
-			return fmt.Errorf("invalid repository %q: %w", cfg.Repository, err)
+		if ssh {
+			return "", errors.New("ssh-key input is not supported when provided an HTTP URL within the repository input")
 		}
 
-		if repoURL.IsAbs() && repoURL.Host != "" {
-			serverURL := cfg.serverURL()
+		parsedURL, err := url.Parse(repoURL)
+		if err != nil {
+			return "", fmt.Errorf("invalid repository %q: %w", repoURL, err)
+		}
 
-			if serverURL != "" && !strings.HasPrefix(cfg.Repository, serverURL+"/") {
-				return fmt.Errorf("repository url (%s) must start with the server URL (%s) of the provider (%s)", cfg.Repository, serverURL, cfg.Provider)
-			}
+		if !parsedURL.IsAbs() || parsedURL.Host == "" {
+			return "", fmt.Errorf("invalid repository URL %q provided, expects full clone URL", repoURL)
+		}
 
-			// Add .git suffix to repository URL in case of a known SCM provider.
-			// This is to align with the old logic implemented in fetchURL().
-			// We cannot add the .git suffix to every clone URL since some SCM providers don't support it (e.g. Azure DevOps).
-			switch cfg.Provider {
-			case auth.GitHubProvider,
-				auth.BitbucketProvider,
-				auth.BitbucketDatacenterProvider,
-				auth.GitLabProvider:
-				if !strings.HasSuffix(cfg.Repository, ".git") {
-					cfg.repositoryCloneURL = fmt.Sprintf("%s.git", cfg.Repository)
-				}
-			}
-		} else {
-			if cfg.Provider == auth.CustomProvider {
-				return errors.New("short form repository URL provided but an absolute URL is required when using a custom SCM provider")
-			}
-
-			splitRepository := strings.Split(repoURL.Path, "/")
-			if len(splitRepository) != 2 || splitRepository[0] == "" || splitRepository[1] == "" {
-				return fmt.Errorf("invalid repository '%s', expected format {owner}/{repo} or {serverURL}/{repoPath}", cfg.Repository)
-			}
-
-			// Absolutize the short form URL
-			cfg.repositoryCloneURL, err = cfg.fetchURL(cfg.SSHKey != "")
-			if err != nil {
-				return fmt.Errorf("absolutize repository url: %w", err)
-			}
+		if strings.HasSuffix(repoURL, dotGitCloneURLSuffix) {
+			repoURL = repoURL[:len(repoURL)-len(dotGitCloneURLSuffix)]
 		}
 	}
 
-	return nil
+	return repoURL, nil
 }
 
 func (cfg *Config) writeActionOutputs(cli *git.GitCLI) error {
@@ -311,34 +202,6 @@ func (cfg *Config) writeActionOutputs(cli *git.GitCLI) error {
 		return err
 	}
 
-	fullCommitUrl := "Unavailable"
-	if commitId != "" {
-		// Remove .git suffix if present
-		fullUrl = strings.TrimSuffix(fullUrl, ".git")
-		//GitHub and GitLab use "commit" in the URL, Bitbucket uses "commits"
-		switch cfg.Provider {
-		case auth.GitHubProvider:
-			fallthrough
-		case auth.GitLabProvider:
-			fullCommitUrl = fullUrl + "/commit/" + commitId
-		case auth.BitbucketProvider:
-			fullCommitUrl = fullUrl + "/commits/" + commitId
-		case auth.BitbucketDatacenterProvider:
-			repo := cfg.Repository
-			if strings.HasSuffix(repo, ".git") {
-				repo = repo[:len(repo)-len(".git")]
-			}
-			name := strings.Split(repo, "/")
-			if len(name) >= 2 {
-				fullCommitUrl = cfg.BitbucketServerURL + "/projects/" + name[len(name)-2] + "/repos/" + name[len(name)-1] + "/commits/" + commitId
-			}
-		}
-	}
-
-	err = os.WriteFile(filepath.Join(outDir, "commit-url"), []byte(fullCommitUrl), 0640)
-	if err != nil {
-		return err
-	}
 	// Use input ref or branch if not supplied
 	ref := cfg.Ref
 	if ref == "" {
@@ -348,24 +211,6 @@ func (cfg *Config) writeActionOutputs(cli *git.GitCLI) error {
 		}
 	}
 	return os.WriteFile(filepath.Join(outDir, "ref"), []byte(ref), 0640)
-}
-
-func (cfg *Config) ensureScmPathForBitbucketDatacenterUrl() error {
-	if cfg.Provider != auth.BitbucketDatacenterProvider {
-		return nil
-	}
-
-	p, err := url.Parse(cfg.BitbucketServerURL)
-	if err != nil {
-		return fmt.Errorf("bitbucket-server-url: %w", err)
-	}
-
-	if strings.HasSuffix(p.Path, "/scm") || strings.HasSuffix(p.Path, "/scm/") {
-		return nil
-	}
-
-	cfg.BitbucketServerURL, err = url.JoinPath(cfg.BitbucketServerURL, "scm")
-	return err
 }
 
 func (cfg *Config) findEventContext() error {
@@ -532,12 +377,9 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	}
 
 	cleaner, helperCommand, err := auth.ConfigureToken(
-		cli, "", false, cfg.serverURL(), auth.TokenAuth{
-			Provider:      cfg.Provider,
-			ScmToken:      cfg.Token,
-			TokenAuthType: cfg.TokenAuthtype,
-			ApiToken:      cfg.CloudBeesApiToken,
-			ApiURL:        cfg.CloudBeesApiURL,
+		cli, "", false, auth.TokenAuth{
+			ApiToken: cfg.CloudBeesApiToken,
+			ApiURL:   cfg.CloudBeesApiURL,
 		})
 	if err != nil {
 		return err
@@ -598,13 +440,13 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		if refPresent, err := testRef(cli, cfg.Ref, cfg.Commit); err != nil {
 			return err
 		} else if !refPresent {
-			if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit, cfg.Provider), fetchOptions); err != nil {
+			if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit), fetchOptions); err != nil {
 				return err
 			}
 		}
 	} else {
 		fetchOptions.FetchDepth = cfg.FetchDepth
-		if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit, cfg.Provider), fetchOptions); err != nil {
+		if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit), fetchOptions); err != nil {
 			return err
 		}
 	}
@@ -664,52 +506,14 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		// Temporarily override global config
 		core.StartGroup("Setting up auth for fetching submodules")
 
-		cleaner, _, err := auth.ConfigureToken(cli, "", true, cfg.serverURL(), auth.TokenAuth{
-			Provider:      cfg.Provider,
-			ScmToken:      cfg.Token,
-			TokenAuthType: cfg.TokenAuthtype,
-			ApiToken:      cfg.CloudBeesApiToken,
-			ApiURL:        cfg.CloudBeesApiURL,
+		cleaner, _, err := auth.ConfigureToken(cli, "", true, auth.TokenAuth{
+			ApiToken: cfg.CloudBeesApiToken,
+			ApiURL:   cfg.CloudBeesApiURL,
 		})
 		if err != nil {
 			return err
 		}
 
-		var insteadOfKey string
-		if cfg.Provider != auth.CustomProvider {
-			u, err := url.Parse(cfg.serverURL())
-			if err != nil {
-				return err
-			}
-
-			const insteadOfTemplate = "url.%s/.insteadOf"
-			insteadOfKey = fmt.Sprintf(insteadOfTemplate, u.Scheme+"://"+u.Host)
-			if _, err := cli.UnsetConfig(true, insteadOfKey); err != nil {
-				return err
-			}
-			var insteadOfValues []string
-
-			insteadOfValues = append(
-				insteadOfValues,
-				fmt.Sprintf("git@%s:", u.Host),
-			)
-
-			if cfg.Provider == auth.GitHubProvider && cfg.githubWorkflowOrganizationId != "" {
-				insteadOfValues = append(
-					insteadOfValues,
-					fmt.Sprintf("org-%s@%s:", cfg.githubWorkflowOrganizationId, u.Host),
-				)
-			}
-
-			// Configure HTTPS instead of SSH
-			if !useSSH {
-				for _, v := range insteadOfValues {
-					if err := cli.AddConfigStr(true, insteadOfKey, v); err != nil {
-						return err
-					}
-				}
-			}
-		}
 		core.EndGroup("Auth for submodules configured")
 
 		// Checkout submodules
@@ -726,38 +530,16 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}
 		core.EndGroup("Submodules fetched")
 
-		if cfg.PersistCredentials {
-			core.StartGroup("Persisting credentials for submodules")
-			if insteadOfKey != "" {
-				if _, err := cli.UnsetConfig(true, insteadOfKey); err != nil {
-					return err
-				}
-			}
-			if err := auth.ConfigureSubmoduleTokenAuth(cli, recursive, cfg.serverURL(), cfg.Token); err != nil {
-				return err
-			}
-			core.EndGroup("Credentials for submodules persisted")
-		} else {
+		if !cfg.PersistCredentials {
 			if err := cleaner(); err != nil {
 				return err
 			}
 		}
 	}
 
-	// Get commit information
-	var commitInfo string
-	commitInfo, err = cli.Log1()
-	if err != nil {
-		return err
-	}
-
 	// Log commit sha
 	_, err = cli.Log1("--format='%H'")
 	if err != nil {
-		return err
-	}
-
-	if err := cfg.checkCommitInfo(commitInfo); err != nil {
 		return err
 	}
 
@@ -819,84 +601,6 @@ func (cfg *Config) doLocalMerge(cli *git.GitCLI, repositoryURL string, credsHelp
 	return "", nil
 }
 
-func (cfg *Config) checkCommitInfo(commitInfo string) error {
-	if cfg.Provider != auth.GitHubProvider {
-		// this is a GitHub specific test
-		return nil
-	}
-
-	if t, ok := getStringFromMap(cfg.eventContext, "type"); !ok || t != "pull_request" {
-		// check only applies to a pull request
-	}
-	raw, ok := getMapFromMap(cfg.eventContext, "raw")
-	if !ok {
-		// cannot check without the raw event, assuming ok
-		return nil
-	}
-	repo, ok := getMapFromMap(raw, "repository")
-	if !ok {
-		// cannot check without the repo details from event, assuming ok
-		return nil
-	}
-	if repoPriv, ok := getBoolFromMap(repo, "private"); !ok || repoPriv {
-		// check is only valid for public PR synchronize
-		return nil
-	}
-	if action, ok := getStringFromMap(raw, "action"); !ok || action != "synchronize" {
-		// check is only valid for public PR synchronize
-		return nil
-	}
-	if !cfg.isWorkflowRepository(cfg.eventContext) {
-		// check is only valid when checking out the workflow repository
-		return nil
-	}
-	if ref, ok := getStringFromMap(raw, "ref"); !ok || cfg.Ref != ref || !strings.HasPrefix(ref, "refs/pull/") {
-		// check is only valid when checking out the workflow repository on the event ref
-		return nil
-	}
-	if sha, ok := getStringFromMap(raw, "sha"); !ok || cfg.Commit != sha {
-		// check is only valid when checking out the event sha
-		return nil
-	}
-
-	// Head SHA
-	expectedHeadSha, ok := getStringFromMap(raw, "after")
-	if !ok || expectedHeadSha == "" {
-		core.Debug("Unable to determine head sha")
-		return nil
-	}
-
-	// Base SHA
-	pr, _ := getMapFromMap(raw, "pull_request")
-	bs, _ := getMapFromMap(pr, "base")
-	expectedBaseSha, ok := getStringFromMap(bs, "sha")
-	if !ok || expectedBaseSha == "" {
-		core.Debug("Unable to determine base sha")
-		return nil
-	}
-
-	expectedMessage := fmt.Sprintf("Merge %s into %s", expectedHeadSha, expectedBaseSha)
-	if strings.Contains(commitInfo, expectedMessage) {
-		// all good check is valid
-		return nil
-	}
-
-	rex := regexp.MustCompile(`Merge ([0-9a-f]{40}) into ([0-9a-f]{40})`)
-	match := rex.FindStringSubmatch(commitInfo)
-	if match == nil {
-		core.Debug("Unexpected message format")
-		return nil
-	}
-
-	// Post telemetry
-	actualHeadSha := match[1]
-	if actualHeadSha != expectedHeadSha {
-		core.Debug("Expected head sha %s; actual head sha %s", expectedHeadSha, actualHeadSha)
-	}
-
-	return nil
-}
-
 // loadEventContext attempts to load the event context from the JSON file at the supplied path.
 func loadEventContext(path string) (map[string]interface{}, error) {
 	var bytes []byte
@@ -917,17 +621,13 @@ func loadEventContext(path string) (map[string]interface{}, error) {
 }
 
 func (cfg *Config) isWorkflowRepository(eventContext map[string]interface{}) bool {
-	ctxProvider, haveP := getStringFromMap(eventContext, "provider")
-	ctxProvider = strings.ToLower(ctxProvider)
-
-	ctxRepository, haveR := getStringFromMap(eventContext, "repository")
-	core.Debug("ctx.provider = %s", ctxProvider)
+	ctxRepository, haveR := getStringFromMap(eventContext, "repositoryUrl")
+	normalizedCtxRepository, _ := normalizeRepositoryURL(ctxRepository, false)
 	core.Debug("ctx.repository = %s", ctxRepository)
-	core.Debug("cfg.provider = %s", cfg.Provider)
 	core.Debug("cfg.repository = %s", cfg.Repository)
 	core.Debug("cfg.repositoryCloneURL = %s", cfg.repositoryCloneURL)
 
-	return haveP && cfg.Provider == ctxProvider && haveR && cfg.Repository == ctxRepository
+	return haveR && (ctxRepository != "" && cfg.Repository == ctxRepository || normalizedCtxRepository != "" && cfg.repositoryCloneURL == normalizedCtxRepository)
 }
 
 func getStringFromMap(m map[string]interface{}, key string) (string, bool) {
@@ -1070,7 +770,7 @@ func getRefSpecForAllHistory(ref string, commit string) []string {
 	return r
 }
 
-func getRefSpec(ref string, commit string, provider string) []string {
+func getRefSpec(ref string, commit string) []string {
 	lowerRef := strings.ToLower(ref)
 
 	if commit != "" {
@@ -1088,9 +788,6 @@ func getRefSpec(ref string, commit string, provider string) []string {
 			return []string{fmt.Sprintf("+%s:%s", commit, ref)}
 		}
 
-		if provider == auth.BitbucketProvider {
-			return []string{commit, ref}
-		}
 		return []string{commit}
 	}
 
