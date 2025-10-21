@@ -208,15 +208,6 @@ func ConfigureSubmoduleTokenAuth(cli *git.GitCLI, recursive bool, serverURL stri
 		if err != nil {
 			return err
 		}
-	} else {
-		core.Debug("Found git-credential-cloudbees on the path, using it for submodule token auth")
-
-		submoduleOutput, err = cli.SubmoduleForeach(recursive, "sh", "-c",
-			fmt.Sprintf(`%s config --local --show-origin --name-only --get-regexp remote.origin.url`,
-				cli.Executable()))
-		if err != nil {
-			return err
-		}
 	}
 
 	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(authTemplate, token)))
