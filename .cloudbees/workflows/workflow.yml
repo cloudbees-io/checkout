@@ -7,8 +7,11 @@ on:
     branches:
       - "*"
 
-jobs:
+permissions:
+  scm-token-own: read
+  scm-token-org: read
 
+jobs:
   build:
     if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com' || cloudbees.api.url == 'https://api.cloudbees.io'
     permissions:
@@ -39,7 +42,7 @@ jobs:
           destination: 020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:${{ cloudbees.scm.sha }},020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:latest
           labels: maintainer=sdp-pod-3,email=engineering@cloudbees.io
 
-  test:
+  test-simple:
     if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com'
     needs: build
     steps:
@@ -63,3 +66,40 @@ jobs:
           [ "${{ steps.runaction.outputs.repository-url }}" = "https://github.com/cloudbees-io/checkout.git" ]
           [ "${{ steps.runaction.outputs.commit }}" = "${{ cloudbees.scm.sha }}" ]
           [ "${{ steps.runaction.outputs.commit-url }}" = "https://github.com/cloudbees-io/checkout/commit/${{ cloudbees.scm.sha }}" ]
+  test-public-submodule-support:
+    if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com'
+    needs: build
+    steps:
+      - name: Run Action
+        uses: ./.cloudbees/testing
+        env:
+          RUNNER_DEBUG: "1"
+        with:
+          repository: https://github.com/microsoft/onnxruntime.git
+          submodules: recursive
+      - name: Verify that the repo was checked out
+        uses: docker://alpine:3.22
+        run: |
+          set -x
+          [ -d .git ]
+          [ -d cmake/external/emsdk ]
+          [ -d include/onnxruntime/core ]
+          cat .git/modules/cmake/external/emsdk/config
+  test-private-submodule-support:
+    if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com'
+    needs: build
+    steps:
+      - name: Run Action
+        uses: ./.cloudbees/testing
+        env:
+          RUNNER_DEBUG: "1"
+        with:
+          repository: https://github.com/cloudbees-io/checkout-test.git
+          submodules: recursive
+      - name: Verify that the repo was checked out
+        uses: docker://alpine:3.22
+        run: |
+          set -x
+          [ -d .git ]
+          [ -d .git/modules/checkout-test-submodule ]
+          [ "$(cat checkout-test-submodule/file-within-submodule)" = 'test content' ]
