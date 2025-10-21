@@ -196,18 +196,25 @@ func ConfigureSubmoduleTokenAuth(cli *git.GitCLI, recursive bool, serverURL stri
 		return err
 	}
 
-	key := fmt.Sprintf(tokenConfigKey, u.Scheme+"://"+u.Host)
-
-	output, err := cli.SubmoduleForeach(recursive, "sh", "-c", fmt.Sprintf(`%s config --local '%s' '%s' && %s config --local --show-origin --name-only --get-regexp remote.origin.url`, cli.Executable(), key, tokenPlaceholderConfigValue, cli.Executable()))
+	var submoduleOutput string
+	_, err = exec.LookPath("git-credential-cloudbees")
 	if err != nil {
-		return err
+		core.Debug("Could not find git-credential-cloudbees on the path, using token placeholder replacement for submodules")
+		key := fmt.Sprintf(tokenConfigKey, u.Scheme+"://"+u.Host)
+
+		submoduleOutput, err = cli.SubmoduleForeach(recursive, "sh", "-c",
+			fmt.Sprintf(`%s config --local '%s' '%s' && %s config --local --show-origin --name-only --get-regexp remote.origin.url`,
+				cli.Executable(), key, tokenPlaceholderConfigValue, cli.Executable()))
+		if err != nil {
+			return err
+		}
 	}
 
 	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(authTemplate, token)))
 
 	configPathRegex := regexp.MustCompile(`^file:([^\t]+)\tremote\.origin\.url$`)
 
-	for _, line := range strings.Split(output, "\n") {
+	for _, line := range strings.Split(submoduleOutput, "\n") {
 		matches := configPathRegex.FindStringSubmatch(line)
 		if matches == nil {
 			continue

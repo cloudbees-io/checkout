@@ -103,3 +103,4 @@ jobs:
           [ -d .git ]
           [ -d .git/modules/checkout-test-submodule ]
           [ "$(cat checkout-test-submodule/file-within-submodule)" = 'test content' ]
+          cat .git/modules/checkout-test-submodule/config
