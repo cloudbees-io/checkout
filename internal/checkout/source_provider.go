@@ -500,7 +500,12 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	var sshKeyPath string
 	var sshKnownHostsPath string
 	var sshCommand string
+
+	// when checking out using SSH the local git config should not be updated to use the credential helper as the user provided SSH key should be used.
+	// However we still need the credential helper in the global git config for the subsequent calls to do a local merge and to fetch submodules.
+	var globalGitConfigUpdate bool
 	if useSSH {
+		globalGitConfigUpdate = true
 		if sshKeyPath, err = auth.GenerateSSHKey(ctx, temp, uniqueID, cfg.SSHKey); err != nil {
 			return err
 		}
@@ -532,7 +537,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	}
 
 	cleaner, helperCommand, err := auth.ConfigureToken(
-		cli, "", false, cfg.serverURL(), auth.TokenAuth{
+		cli, "", globalGitConfigUpdate, cfg.serverURL(), auth.TokenAuth{
 			Provider:      cfg.Provider,
 			ScmToken:      cfg.Token,
 			TokenAuthType: cfg.TokenAuthtype,
