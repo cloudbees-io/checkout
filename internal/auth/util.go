@@ -92,6 +92,51 @@ func (a *TokenAuth) options() map[string][]string {
 	return options
 }
 
+func credentialHelperWithUserProvidedCreds(cli *git.GitCLI, globalConfig bool, serverURL string, token TokenAuth) (func() error, string, error) {
+	helperCommand, cleaner, err := helper.InstallHelperFor(serverURL, token.options())
+	if err != nil {
+		return cleaner, "", err
+	}
+
+	oldHelper, _ := cli.GetConfig(globalConfig, "credential.helper")
+	oldUseHttpPath, _ := cli.GetConfig(globalConfig, "credential.useHttpPath")
+
+	fullCleaner := func() error {
+		var errs []error
+		if oldHelper == "" {
+			if _, err := cli.UnsetConfig(globalConfig, "credential.helper"); err != nil {
+				errs = append(errs, err)
+			}
+		} else if err := cli.SetConfigStr(globalConfig, "credential.helper", oldHelper); err != nil {
+			errs = append(errs, err)
+		}
+		useHttpPath, _ := strconv.ParseBool(oldUseHttpPath)
+		if oldUseHttpPath == "" {
+			if _, err := cli.UnsetConfig(globalConfig, "credential.useHttpPath"); err != nil {
+				errs = append(errs, err)
+			}
+		} else if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", useHttpPath); err != nil {
+			errs = append(errs, err)
+		}
+		if err := cleaner(); err != nil {
+			errs = append(errs, err)
+		}
+		if len(errs) > 0 {
+			return errors.Join(errs...)
+		}
+		return nil
+	}
+
+	if err := cli.SetConfigStr(globalConfig, "credential.helper", helperCommand); err != nil {
+		return fullCleaner, "", err
+	}
+	if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", true); err != nil {
+		return fullCleaner, "", err
+	}
+
+	return fullCleaner, helperCommand, nil
+}
+
 func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serverURL string, token TokenAuth) (func() error, string, error) {
 	if configPath != "" && globalConfig {
 		return noOpClean, "", fmt.Errorf("unexpected ConfigureToken parameter combination")
@@ -109,52 +154,14 @@ func ConfigureToken(cli *git.GitCLI, configPath string, globalConfig bool, serve
 	}
 
 	path, err := exec.LookPath("git-credential-cloudbees")
-	if err != nil {
-		// we are running on an older version of platform, fall-back to the built in helper
-		core.Debug("Could not find git-credential-cloudbees on the path, falling back to old-style helper")
-
-		helperCommand, cleaner, err := helper.InstallHelperFor(serverURL, token.options())
+	if err != nil || len(token.ScmToken) > 0 { // if token.ScmToken is set, that means the user wants to use his own token, so we fallback to the old style helper
 		if err != nil {
-			return cleaner, "", err
+			core.Debug("Could not find git-credential-cloudbees on the path, falling back to old-style helper")
+		} else {
+			core.Debug("Using user-provided token, falling back to old-style helper")
 		}
 
-		oldHelper, _ := cli.GetConfig(globalConfig, "credential.helper")
-		oldUseHttpPath, _ := cli.GetConfig(globalConfig, "credential.useHttpPath")
-
-		fullCleaner := func() error {
-			var errs []error
-			if oldHelper == "" {
-				if _, err := cli.UnsetConfig(globalConfig, "credential.helper"); err != nil {
-					errs = append(errs, err)
-				}
-			} else if err := cli.SetConfigStr(globalConfig, "credential.helper", oldHelper); err != nil {
-				errs = append(errs, err)
-			}
-			useHttpPath, _ := strconv.ParseBool(oldUseHttpPath)
-			if oldUseHttpPath == "" {
-				if _, err := cli.UnsetConfig(globalConfig, "credential.useHttpPath"); err != nil {
-					errs = append(errs, err)
-				}
-			} else if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", useHttpPath); err != nil {
-				errs = append(errs, err)
-			}
-			if err := cleaner(); err != nil {
-				errs = append(errs, err)
-			}
-			if len(errs) > 0 {
-				return errors.Join(errs...)
-			}
-			return nil
-		}
-
-		if err := cli.SetConfigStr(globalConfig, "credential.helper", helperCommand); err != nil {
-			return fullCleaner, "", err
-		}
-		if err := cli.SetConfigBool(globalConfig, "credential.useHttpPath", true); err != nil {
-			return fullCleaner, "", err
-		}
-
-		return fullCleaner, helperCommand, nil
+		return credentialHelperWithUserProvidedCreds(cli, globalConfig, serverURL, token)
 	}
 
 	core.Debug("Found git-credential-cloudbees on the path at %s", path)
