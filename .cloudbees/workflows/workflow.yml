@@ -61,7 +61,7 @@ jobs:
           echo '  Repository URL = ${{ steps.runaction.outputs.repository-url }}'
           echo '  Commit = ${{ steps.runaction.outputs.commit }}'
           echo '  Ref = ${{ steps.runaction.outputs.ref }}'
-          [ "${{ steps.runaction.outputs.repository-url }}" = "https://github.com/cloudbees-io/checkout" ]
+          [ "${{ steps.runaction.outputs.repository-url }}" = "https://github.com/cloudbees-io/checkout.git" ]
           [ "${{ steps.runaction.outputs.commit }}" = "${{ cloudbees.scm.sha }}" ]
           go build .
   test-simple-origin-repo-specified:

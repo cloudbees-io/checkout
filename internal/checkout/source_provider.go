@@ -169,10 +169,6 @@ func normalizeRepositoryURL(repoURL string, ssh bool) (string, error) {
 		if !parsedURL.IsAbs() || parsedURL.Host == "" {
 			return "", fmt.Errorf("invalid repository URL %q provided, expects full clone URL", repoURL)
 		}
-
-		if strings.HasSuffix(repoURL, dotGitCloneURLSuffix) {
-			repoURL = repoURL[:len(repoURL)-len(dotGitCloneURLSuffix)]
-		}
 	}
 
 	return repoURL, nil
@@ -623,11 +619,21 @@ func loadEventContext(path string) (map[string]interface{}, error) {
 func (cfg *Config) isWorkflowRepository(eventContext map[string]interface{}) bool {
 	ctxRepository, haveR := getStringFromMap(eventContext, "repositoryUrl")
 	normalizedCtxRepository, _ := normalizeRepositoryURL(ctxRepository, false)
+	normalizedCtxRepository = stripDotGitExtension(normalizedCtxRepository)
+	normalizedCfgRepository := stripDotGitExtension(cfg.repositoryCloneURL)
 	core.Debug("ctx.repository = %s", ctxRepository)
 	core.Debug("cfg.repository = %s", cfg.Repository)
 	core.Debug("cfg.repositoryCloneURL = %s", cfg.repositoryCloneURL)
 
-	return haveR && (ctxRepository != "" && cfg.Repository == ctxRepository || normalizedCtxRepository != "" && cfg.repositoryCloneURL == normalizedCtxRepository)
+	return haveR && (ctxRepository != "" && cfg.Repository == ctxRepository || normalizedCtxRepository != "" && normalizedCfgRepository == normalizedCtxRepository)
+}
+
+func stripDotGitExtension(repoURL string) string {
+	if strings.HasSuffix(repoURL, dotGitCloneURLSuffix) {
+		return repoURL[:len(repoURL)-len(dotGitCloneURLSuffix)]
+	}
+
+	return repoURL
 }
 
 func getStringFromMap(m map[string]interface{}, key string) (string, bool) {

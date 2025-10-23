@@ -26,10 +26,9 @@ func TestNormalizeRepositoryURL(t *testing.T) {
 			want:  "https://github.com/owner1/repo1",
 		},
 		{
-			name: "strip .git extension from HTTP URL",
-			// This is to be able to compare the URL with the one within the SCM event which may or may not have a .git extension.
+			name:  "preserve .git extension",
 			input: "https://github.com/owner1/repo1.git",
-			want:  "https://github.com/owner1/repo1",
+			want:  "https://github.com/owner1/repo1.git",
 		},
 		{
 			name:  "support custom port",
@@ -46,6 +45,12 @@ func TestNormalizeRepositoryURL(t *testing.T) {
 			name:    "fail on SSH URL without ssh-key",
 			input:   "git@github.com:mgoltzsche/podman-static.git",
 			wantErr: "must also specify the ssh-key input when specifying an SSH URL as repository input",
+		},
+		{
+			name:    "fail on HTTP URL with SSH key",
+			input:   "https://github.com/owner1/repo1",
+			ssh:     true,
+			wantErr: "ssh-key input is not supported when provided an HTTP URL within the repository input",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
