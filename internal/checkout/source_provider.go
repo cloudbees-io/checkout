@@ -514,6 +514,7 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}
 
 		cli.SetEnv("GIT_SSH_COMMAND", sshCommand)
+		core.Debug("GIT_SSH_COMMAND: %s", sshCommand)
 
 		defer func() {
 			if !cfg.PersistCredentials {
@@ -531,8 +532,9 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		}()
 	}
 
+	var globalConfig bool
 	cleaner, helperCommand, err := auth.ConfigureToken(
-		cli, "", false, cfg.serverURL(), auth.TokenAuth{
+		cli, "", globalConfig, cfg.serverURL(), auth.TokenAuth{
 			Provider:      cfg.Provider,
 			ScmToken:      cfg.Token,
 			TokenAuthType: cfg.TokenAuthtype,
@@ -555,6 +557,18 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 	}()
 
 	core.EndGroup("Auth setup")
+
+	if useSSH {
+		// since the user provided an SSH key to access the repository, we will add the following 'url' block into the
+		// git config to prevent git from overwriting the SSH repository clone URL with an HTTPS one
+		if isSSHURL(cfg.repositoryCloneURL) {
+			core.StartGroup("Configuring gitconfig to avoid rewriting the SSH clone URL")
+			if err := cli.AddConfigStr(globalConfig, fmt.Sprintf("url.%s.insteadOf", cfg.repositoryCloneURL), cfg.repositoryCloneURL); err != nil {
+				return err
+			}
+			core.EndGroup("gitconfig configured to avoid rewriting the SSH clone URL")
+		}
+	}
 
 	// Determine the default branch
 	if cfg.Ref == "" && cfg.Commit == "" {
