@@ -17,11 +17,6 @@ The CloudBees API token is used to fetch an app access token if neither the PAT 
 | Required?
 | Description
 
-| `bitbucket-server-url`
-| String
-| No
-| The base URL for the Bitbucket instance to clone. The environment defaults, such as `BITBUCKET_SERVER_URL` are used to fetch the same instance running the workflow. Example URLs:  `https://bitbucket.org` or `https://my-bbdc-server.example.com`.
-
 | `clean`
 | Boolean
 | No
@@ -39,11 +34,6 @@ The CloudBees API token is used to fetch an app access token if neither the PAT 
 Default is `1`.
 `0` indicates a full history for all branches and tags.
 
-| `github-server-url`
-| String
-| No
-| The base URL for the GitHub instance to clone. The environment defaults, such as `GITHUB_SERVER_URL` are used to fetch the same instance running the workflow. Example URLs:  `https://github.com` or `https://my-ghes-server.example.com`.
-
 | `lfs`
 | Boolean
 | No
@@ -59,13 +49,6 @@ Default is `1`.
 | No
 | The default value is `true`.  When `true`, the SSH key is configured within the local Git config. This enables subsequently run scripts to execute using authenticated Git commands.
 
-| `provider`
-| String
-| No
-
-|  The SCM provider hosting the repository. For example GitHub, BitBucket, or custom. The default is `${{ cloudbees.scm.provider }}`.
-When specifying an SSH URL within the repository input, the provider must be set to 'custom'.
-
 | `ref`
 | String
 | No
@@ -75,8 +58,8 @@ The action uses the default branch, except when checking out the triggering work
 | `repository`
 | String
 | No
-| Repository URL or name with owner.
-For example, https://github.com/cloudbees-io/checkout or cloudbees-io/checkout.
+| Repository clone URL.
+For example, https://github.com/cloudbees-io/checkout.
 Default value is `${{ cloudbees.scm.repository }}`.
 
 | `set-safe-directory`
@@ -114,19 +97,6 @@ Use the input `ssh-known-hosts` to configure additional hosts.
 Use the value `recursive`, to recursively check out submodules.
 When the `ssh-key` input is not provided, SSH URLs beginning with `git@github.com:` are converted to HTTPS.
 
-| `token`
-| String
-| No
-| The PAT used to fetch the repository.
-The PAT is configured with the local Git config, which enables your scripts to run authenticated Git commands.
-
-| `token-auth-type`
-| String
-| No
-| The authentication type of the token being used.
-Supported values are `basic` and `bearer`.
-Default is `basic`.
-
 |===
 
 == Outputs
@@ -142,10 +112,6 @@ Default is `basic`.
 | `commit`
 | String
 | The commit SHA for the source repository.
-
-| `commit-url`
-| String
-| The commit URL from the source repository. Returns Unavailable if the commit is from a local merge.
 
 | `ref`
 | String
@@ -177,10 +143,8 @@ In your YAML file, add:
         uses: cloudbees-io/checkout@v1
         id: checkout
         with:
-          provider: ${{ cloudbees.scm.provider }}
-          repository: ${{ cloudbees.repository }}
+          repository: ${{ cloudbees.repositoryUrl }}
           ref: ''
-          token: ${{ cloudbees.scm.token }}
           ssh-key: ''
           ssh-known-hosts: ''
           ssh-strict: true
@@ -191,16 +155,12 @@ In your YAML file, add:
           lfs: false
           submodules: false
           set-safe-directory: true
-          github-server-url: ''
-          bitbucket-server-url: ''
-          gitlab-server-url: ''
       - name: Display outputs
         uses: docker://golang:1.20.3-alpine3.17
         shell: sh
         run: |
           echo Repository URL = ${{ steps.checkout.outputs.repository-url }}
           echo Commit ID = ${{ steps.checkout.outputs.commit }}
-          echo Commit URL = ${{ steps.checkout.outputs.commit-url }}
           echo Ref = ${{ steps.checkout.outputs.ref }}
 ----
 
@@ -213,7 +173,3 @@ link:https://opensource.org/license/mit/[MIT license].
 
 * Learn more about link:https://docs.cloudbees.com/docs/cloudbees-saas-platform-actions/latest/[using actions in CloudBees workflows].
 * Learn about link:https://docs.cloudbees.com/docs/cloudbees-saas-platform/latest/[the CloudBees platform].
-
-
-
-
