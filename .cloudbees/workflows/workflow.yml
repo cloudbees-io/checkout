@@ -22,7 +22,7 @@ jobs:
         uses: https://github.com/cloudbees-io/checkout@v1
 
       - name: Run unit tests and verify coding rules
-        uses: docker://golang:1.24.6
+        uses: docker://golang:1.25.4
         run: |
           make verify
 
@@ -52,7 +52,7 @@ jobs:
         env:
           RUNNER_DEBUG: "1"
       - name: Verify that the repo was checked out
-        uses: docker://golang:1.24-alpine3.22
+        uses: docker://golang:1.25.4
         run: |
           set -x
           [ -d .git ]
