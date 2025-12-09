@@ -319,6 +319,8 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 
 	// Initialize the Repository
 	if _, err := os.Stat(filepath.Join(repositoryPath, ".git")); err != nil {
+		fmt.Println("🚀 Upgrade Recommended: checkout-action v2 Available\n\nWe strongly encourage upgrading to checkout-action v2 to take advantage of improved security, simplified configuration, and better multi-provider support.")
+
 		core.StartGroup("Initializing the Repository")
 		if err := cli.Init(repositoryPath); err != nil {
 			return err
