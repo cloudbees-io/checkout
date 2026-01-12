@@ -94,8 +94,8 @@ Version v1 is no longer maintained and will be removed in the future.
 https://docs.cloudbees.com/docs/cloudbees-platform/latest/source-code-management/migrate-v1-to-v2
 
 Update your workflow file:
-  Change: uses: .../checkout@v1
-  To:     uses: .../checkout@v2
+  Change: uses: cloudbees-io/checkout@v1
+  To:     uses: cloudbees-io/checkout@v2
 
 ==================================================================================================
 `
