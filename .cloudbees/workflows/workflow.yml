@@ -37,10 +37,20 @@ jobs:
         uses: https://github.com/cloudbees-io/configure-ecr-credentials@v1
 
       - name: Build image
+        id: build
         uses: https://github.com/cloudbees-io/kaniko@v1
         with:
-          destination: 020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:${{ cloudbees.scm.sha }},020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:latest
+          destination: 020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:${{ cloudbees.scm.sha }}${{ cloudbees.scm.branch == 'main' && ',020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:latest'}}
           labels: maintainer=sdp-pod-3,email=engineering@cloudbees.io
+
+      - id: slsa-attestation
+        name: Generate SLSA attestation
+        uses: calculi-corp/slsa-attestation@v1
+        with:
+          image-digest: 020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout@${{ steps.build.outputs.digest }}
+          aws-role-to-assume: ${{ vars.oidc_staging_iam_role }}
+          aws-region: us-east-1
+          aws-kms-alias: cbp-dev-kms-key-cosign          
 
   test-simple-no-repo-specified:
     if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com'
