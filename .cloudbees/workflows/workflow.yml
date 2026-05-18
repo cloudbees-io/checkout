@@ -3,6 +3,7 @@ kind: workflow
 name: SelfTest
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - "*"
