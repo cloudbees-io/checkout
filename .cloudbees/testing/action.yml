@@ -81,7 +81,7 @@ runs:
   steps:
     - name: Checkout
       id: checkout
-      uses: docker://020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:${{ cloudbees.version }}
+      uses: docker://020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:preprod
       env:
         CLOUDBEES_EVENT_PATH: /cloudbees/event.json
       shell: sh
