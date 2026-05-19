@@ -17,6 +17,7 @@ jobs:
     if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com' || cloudbees.api.url == 'https://api.cloudbees.io'
     permissions:
       scm-token-own: read
+      scm-token-org: read
       id-token: write
     steps:
       - name: Git checkout
