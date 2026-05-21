@@ -17,6 +17,7 @@ jobs:
     if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com' || cloudbees.api.url == 'https://api.cloudbees.io'
     permissions:
       scm-token-own: read
+      scm-token-org: read
       id-token: write
     steps:
       - name: Git checkout
@@ -27,31 +28,18 @@ jobs:
         run: |
           make verify
 
-      - name: Login to AWS
-        uses: https://github.com/cloudbees-io/configure-aws-credentials@v1
+      - id: build
+        name: Build, scan and push to ECR
+        uses: calculi-corp/cb-internal-shared-actions/build@v8
         with:
-          aws-region: us-east-1
-          role-to-assume: ${{ vars.oidc_staging_iam_role }}
-          role-duration-seconds: "3600"
-
-      - name: Configure container registry for Staging ECR
-        uses: https://github.com/cloudbees-io/configure-ecr-credentials@v1
-
-      - name: Build image
-        id: build
-        uses: https://github.com/cloudbees-io/kaniko@v1
-        with:
-          destination: 020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:${{ cloudbees.scm.sha }}${{ cloudbees.scm.branch == 'main' && ',020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout:latest' || ''}}
-          labels: maintainer=sdp-pod-3,email=engineering@cloudbees.io
-
-      - id: slsa-attestation
-        name: Generate SLSA attestation
-        uses: calculi-corp/slsa-attestation@v1
-        with:
-          image-digest: 020229604682.dkr.ecr.us-east-1.amazonaws.com/actions/cloudbees-io-checkout@${{ steps.build.outputs.digest }}
-          aws-role-to-assume: ${{ vars.oidc_staging_iam_role }}
-          aws-region: us-east-1
-          aws-kms-alias: cbp-dev-kms-key-cosign          
+          go-binary-build: "true"
+          go-binary-name: checkout
+          kaniko-build: "true"
+          run-unit-test: "false"
+          registry-url: 020229604682.dkr.ecr.us-east-1.amazonaws.com
+          registry-image-name: actions/cloudbees-io-checkout
+          registry-type: ECR
+          oidc-iam-role: ${{ vars.oidc_staging_iam_role }}
 
   test-simple-no-repo-specified:
     if: cloudbees.api.url == 'https://api.saas-preprod.beescloud.com'
