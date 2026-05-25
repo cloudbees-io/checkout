@@ -1,6 +1,6 @@
 module github.com/cloudbees-io/checkout
 
-go 1.25.4
+go 1.26.3
 
 require (
 	al.essio.dev/pkg/shellescape v1.6.0
