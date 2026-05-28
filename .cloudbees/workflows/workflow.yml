@@ -30,7 +30,7 @@ jobs:
 
       - id: build
         name: Build, scan and push to ECR
-        uses: calculi-corp/cb-internal-shared-actions/build@v8
+        uses: calculi-corp/cb-internal-shared-actions/build/action@v8
         with:
           go-binary-build: "true"
           go-binary-name: checkout
