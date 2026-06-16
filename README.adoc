@@ -1,4 +1,4 @@
-= CloudBees action: Check out a Git repository
+= CloudBees action: Check out a Git repository 
 
 Use this action to check out a Git repository under `+$CLOUDBEES_WORKSPACE+`, to allow your workflow to access the repository. 
 
