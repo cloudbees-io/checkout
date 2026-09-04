@@ -1,6 +1,6 @@
 FROM alpine:3.24
 
-RUN apk fix && \
+RUN apk --no-cache upgrade && \
     apk --no-cache --update add git git-lfs gpg less openssh patch && \
     git lfs install
 
