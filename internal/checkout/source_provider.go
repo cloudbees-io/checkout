@@ -449,13 +449,13 @@ func (cfg *Config) Run(ctx context.Context) (retErr error) {
 		if refPresent, err := testRef(cli, cfg.Ref, cfg.Commit); err != nil {
 			return err
 		} else if !refPresent {
-			if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit), fetchOptions); err != nil {
+			if err := cfg.fetchTarget(cli, fetchOptions); err != nil {
 				return err
 			}
 		}
 	} else {
 		fetchOptions.FetchDepth = cfg.FetchDepth
-		if err := cli.Fetch(getRefSpec(cfg.Ref, cfg.Commit), fetchOptions); err != nil {
+		if err := cfg.fetchTarget(cli, fetchOptions); err != nil {
 			return err
 		}
 	}
@@ -773,6 +773,12 @@ func testRef(cli *git.GitCLI, ref string, commit string) (bool, error) {
 		return true, nil
 	}
 
+	if strings.HasPrefix(lowerRef, "refs/") {
+		// Other SCM specific refs (e.g. Bitbucket's refs/pull-requests/N/from) are not part of the all-history fetch,
+		// so they can't be verified: report them as not present to fetch them in the targeted fetch.
+		return false, nil
+	}
+
 	return false, fmt.Errorf("unexpected Ref format '%s' when testing Ref info", ref)
 }
 
@@ -978,4 +984,95 @@ func prepareExistingDirectory(cli *git.GitCLI, repositoryPath string, repository
 		return nil
 	}
 	return nil
+}
+
+// fetchTarget fetches the ref or commit. See fetchWithPullRequestHeadFallback.
+func (cfg *Config) fetchTarget(cli *git.GitCLI, options git.FetchOptions) error {
+	branch, headSHA := cfg.pullRequestHead(cfg.Commit)
+	exists := func(sha string) bool {
+		ok, _ := cli.ShaExists(sha)
+		return ok
+	}
+
+	ref, commit, err := fetchWithPullRequestHeadFallback(
+		func(refSpec []string) error { return cli.Fetch(refSpec, options) },
+		exists, cli.RevParse, cfg.Ref, cfg.Commit, branch, headSHA)
+	cfg.Ref, cfg.Commit = ref, commit
+
+	return err
+}
+
+// fetchWithPullRequestHeadFallback fetches the ref or commit using the supplied fetch function and returns the ref and
+// commit to check out.
+//
+// Some SCM hosts (e.g. Bitbucket Cloud) only serve advertised refs, so a fetch of the commit the event reports fails
+// with "not our ref": for a pull request that is a merge commit which is not on any branch. In that case fetch the pull
+// request source branch and check out the pull request head instead (a detached head, so the returned ref is empty).
+// Any other error, or an event without a pull request head, returns the original error.
+func fetchWithPullRequestHeadFallback(
+	fetch func(refSpec []string) error,
+	exists func(sha string) bool,
+	revParse func(ref string) (string, error),
+	ref, commit, prBranch, prHeadSHA string,
+) (string, string, error) {
+	refSpec := getRefSpec(ref, commit)
+
+	err := fetch(refSpec)
+	if err == nil || commit == "" || prBranch == "" || !isCommitRefSpec(refSpec, commit) || !strings.Contains(err.Error(), "not our ref") {
+		return ref, commit, err
+	}
+
+	log.Printf("Warning: commit %s is not available from this SCM host, fetching pull request branch %s instead", commit, prBranch)
+	remoteBranch := "refs/remotes/origin/" + prBranch
+	if fetchErr := fetch([]string{fmt.Sprintf("+refs/heads/%s:%s", prBranch, remoteBranch)}); fetchErr != nil {
+		return ref, commit, err
+	}
+
+	head := prHeadSHA
+	if head == "" || !exists(head) {
+		if tip, tipErr := revParse(remoteBranch); tipErr == nil && tip != "" {
+			return "", tip, nil
+		}
+
+		return ref, commit, err
+	}
+
+	return "", head, nil
+}
+
+// isCommitRefSpec returns true when the only refspec fetches the commit itself, either bare ("<sha>") or with
+// a destination ("+<sha>:refs/remotes/origin/<branch>").
+func isCommitRefSpec(refSpec []string, commit string) bool {
+	if len(refSpec) != 1 {
+		return false
+	}
+	src, _, _ := strings.Cut(strings.TrimPrefix(refSpec[0], "+"), ":")
+
+	return src == commit
+}
+
+// pullRequestHead returns the source branch and head SHA of the triggering pull request, but only for the commit the
+// event itself reported (its head, or the merge commit the SCM provides for it). For any other commit (e.g. an explicit
+// SHA from another branch) the pull request says nothing about where the commit lives.
+// The event only describes the workflow repository, so it is ignored when another repository is checked out.
+func (cfg *Config) pullRequestHead(commit string) (branch string, sha string) {
+	if commit == "" || !cfg.isWorkflowRepository(cfg.eventContext) {
+		return "", ""
+	}
+
+	pr, found := getMapFromMap(cfg.eventContext, "pullRequest")
+	if !found {
+		return "", ""
+	}
+	head, found := getMapFromMap(pr, "head")
+	if !found {
+		return "", ""
+	}
+	sha, _ = getStringFromMap(head, "sha")
+	if eventSHA, _ := getStringFromMap(cfg.eventContext, "sha"); commit != sha && commit != eventSHA {
+		return "", ""
+	}
+	branch, _ = getStringFromMap(head, "branch")
+
+	return strings.TrimPrefix(branch, "refs/heads/"), sha
 }
