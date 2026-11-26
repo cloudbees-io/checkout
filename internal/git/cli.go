@@ -113,6 +113,11 @@ func (g *GitCLI) runMerge(mergeBin string, args ...string) (string, error) { // 
 }
 
 func (g *GitCLI) run(args ...string) error {
+	return g.runCapturingStderr(nil, args...)
+}
+
+// runCapturingStderr behaves like run and additionally copies the command's stderr to the supplied writer (if any).
+func (g *GitCLI) runCapturingStderr(stderr io.Writer, args ...string) error {
 	c := exec.CommandContext(g.ctx, g.exe, args...)
 	c.Dir = g.cwd
 	c.Env = envMapToEntries(g.env)
@@ -124,6 +129,14 @@ func (g *GitCLI) run(args ...string) error {
 	if !g.quiet {
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
+	}
+
+	if stderr != nil {
+		if c.Stderr != nil {
+			c.Stderr = io.MultiWriter(c.Stderr, stderr)
+		} else {
+			c.Stderr = stderr
+		}
 	}
 
 	err := c.Run()
@@ -536,5 +549,15 @@ func (g *GitCLI) Fetch(refSpec []string, options FetchOptions) error {
 	}
 	args = append(args, refSpec...)
 
-	return g.run(args...)
+	// Keep git's diagnostic in the returned error (while still logging it) so callers can react to it,
+	// e.g. "not our ref". The exit error stays unwrappable.
+	var stderr bytes.Buffer
+	if err := g.runCapturingStderr(&stderr, args...); err != nil {
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			return fmt.Errorf("%w: %s", err, msg)
+		}
+		return err
+	}
+
+	return nil
 }
